@@ -30,7 +30,8 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      # Incluye `flask db upgrade` del entrypoint antes de gunicorn
+      start_period: 60s
 
   # Worker de sincronización automática folios -> Google Sheets (APScheduler).
   # La frecuencia se configura desde el módulo Sincronización (tabla sync_config).
@@ -39,6 +40,8 @@ services:
     command: python run_worker.py
     environment:
       FLASK_CONFIG: production
+      # Solo `app` migra al arrancar (docker-entrypoint.sh)
+      AUTO_MIGRATE: "false"
       TZ: ${TZ:-America/Santo_Domingo}
     env_file: .env
     volumes:

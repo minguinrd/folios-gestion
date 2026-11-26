@@ -34,5 +34,8 @@ USER appuser
 
 EXPOSE 8089
 
+# Migra la base antes de arrancar (AUTO_MIGRATE=false lo desactiva; el
+# sync-worker lo desactiva para que solo `app` corra el DDL).
+ENTRYPOINT ["sh", "/app/docker-entrypoint.sh"]
 CMD ["gunicorn", "--bind", "0.0.0.0:8089", "--workers", "4", "--timeout", "120", \
      "--access-logfile", "-", "run:app"]

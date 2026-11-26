@@ -81,6 +81,7 @@ app/
   inspecciones/    # /inspecciones — panel de inconsistencias (services/inspecciones.py)
   sincronizacion/  # /sincronizacion — sync folios → Google Sheets (services/gsheets.py)
   main/            # `/` redirects to dashboard
+migrar_al_arrancar.py  # entrypoint Docker: flask db upgrade antes de gunicorn
 run_worker.py      # servicio compose `sync-worker` (APScheduler, tick 1 min, latido para healthcheck_worker.py)
   templates/       # Jinja2 templates (shared across blueprints)
   static/          # CSS/JS/images
@@ -102,6 +103,7 @@ run_worker.py      # servicio compose `sync-worker` (APScheduler, tick 1 min, la
 - App config selected via `FLASK_CONFIG` (`development`/`production`), default **production**. Docker forces `FLASK_CONFIG: production` in `docker-compose.yml`; local debug needs `FLASK_CONFIG=development`.
 - `init_db.py` creates admin with a **random password** printed once to console — no fixed default anymore.
 - Migrations: DBs existentes pre-migraciones requieren `flask db stamp 0001_baseline` una vez antes de `flask db upgrade` (ver README para SQL de duplicados previo a `0002_integrity`). `0003_indexes` cambia índices de `folios`/`audit_logs` — crea los compuestos antes de dropear los simples porque el FK `folios.tipoCert_id` exige un índice. **El stamp es a la revisión que el esquema YA tiene**: DB creada con `init_db.py` (`create_all` con los modelos actuales, `alembic_version` vacía) falla en `0001_baseline` con `Table '…' already exists` → stamp a la última revisión reflejada por las tablas presentes (hoy `0011_marca_institucion`), no a `0001` (fallaría igual en `0004`). Ver README → "Síntoma Table '…' already exists".
+- Auto-migrate: la imagen tiene `ENTRYPOINT docker-entrypoint.sh` → `migrar_al_arrancar.py` (`flask db upgrade` con `GET_LOCK` de MariaDB) antes del `CMD`. Solo `app` migra (`sync-worker` lleva `AUTO_MIGRATE: "false"`; `AUTO_MIGRATE=false` lo apaga del todo). Falla de migración → exit 1, el contenedor no arranca. Base con tablas y sin revisión de alembic (`init_db.py` sin stamp) → **no** migra, avisa y arranca (el upgrade fallaría en `0001`). `docker compose exec` no pasa por el entrypoint. Sin esto, una imagen con migración nueva daba 500 `Unknown column` con la app "healthy".
 - Si `alembic_version` trae una revisión desconocida (cadena de migraciones ajena), `upgrade`/`check` fallan con `Can't locate revision`: fijarla a `0001_baseline` con `UPDATE alembic_version` y subir (ver README → "DB con cadena de migraciones ajena"). `db check` quedará con extras heredados inofensivos.
 - `/auth/logout` is POST-only (navbar renders a form with CSRF token); GET returns 405.
 - Rate limits: `RATELIMIT_STORAGE_URI` (default `memory://` para dev; compose inyecta `redis://redis:6379` para que los 4 workers compartan el contador). El cliente `redis` va en `requirements.txt`: Flask-Limiter construye el storage *eager* en `init_app` → sin el paquete la app no arranca (gunicorn exit 3). `RATELIMIT_SWALLOW_ERRORS=true` (fail-open si Redis cae). El límite solo cuenta peticiones que llegan al view: las rechazadas por CSRF global (400) no consumen cuota.

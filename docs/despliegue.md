@@ -171,14 +171,21 @@ docker compose -f docker-compose.deploy.yml --profile tools up -d phpmyadmin   #
 
 ## 6. Inicializar la base
 
+**Migraciones automáticas:** el contenedor `app` corre `flask db upgrade`
+antes de gunicorn (`docker-entrypoint.sh` → `migrar_al_arrancar.py`; se ve
+como `[auto-migrate]` en `docker compose logs app`). El `sync-worker` no
+migra (`AUTO_MIGRATE: "false"`). Para desactivarlo: `AUTO_MIGRATE=false` en
+`.env` y migrar a mano. Si la migración falla, el contenedor no arranca
+(revise `docker compose logs app`). Si la base tiene tablas pero ninguna
+revisión de alembic (creada con `init_db.py`), **no** migra: lo avisa en el
+log y arranca; haga el `stamp` descrito más abajo una vez.
+
 **Servidor nuevo (sin datos):** migrar **primero**, inicializar **después**.
+Con `up -d` el esquema ya queda en el HEAD; solo falta:
 
 ```bash
 cd /opt/folios
-# 1) esquema al HEAD de las migraciones
-docker compose -f docker-compose.deploy.yml exec -e FLASK_APP=run.py app flask db upgrade
-
-# 2) tablas faltantes + usuario admin con contraseña aleatoria (se imprime UNA vez)
+# tablas faltantes + usuario admin con contraseña aleatoria (se imprime UNA vez)
 docker compose -f docker-compose.deploy.yml exec app python init_db.py
 ```
 
@@ -298,9 +305,13 @@ para que la app no sea visible desde Internet sin el proxy.
 cd /opt/folios
 # opcional: fijar versión en .env → FOLIOS_IMAGE=m809/folios-gestion:1.3.0
 docker compose -f docker-compose.deploy.yml pull
-docker compose -f docker-compose.deploy.yml up -d
-docker compose -f docker-compose.deploy.yml exec -e FLASK_APP=run.py app flask db upgrade
+docker compose -f docker-compose.deploy.yml up -d    # migra al arrancar (§6)
+docker compose -f docker-compose.deploy.yml logs app | grep auto-migrate
 ```
+
+Imágenes anteriores a la que trae `docker-entrypoint.sh` no migran solas:
+tras `up -d`, `docker compose -f docker-compose.deploy.yml exec -e
+FLASK_APP=run.py app flask db upgrade`.
 
 Antes de actualizar en producción: dump SQL (§7). Las migraciones son
 adhierentes: una base nueva y una actualizada quedan en el mismo esquema.
