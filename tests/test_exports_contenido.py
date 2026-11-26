@@ -287,12 +287,19 @@ def test_reportes_pdf_supera_tope_redirige_con_aviso(auth_client, app, tipo):
 
 
 def test_reportes_excel_varios_lotes(auth_client, app, tipo, monkeypatch):
-    """yield_per en lotes chicos: no se pierden ni duplican filas entre lotes."""
+    """Lotes chicos: no se pierden ni duplican filas entre lotes.
+
+    Regresión MariaDB: con yield_per el export salía solo con el primer lote
+    (SQLite no lo reproduce; este test cubre el corte entre lotes y el
+    empate de número entre años).
+    """
     import app.reportes as reportes
     monkeypatch.setattr(reportes, 'LOTE_EXPORT', 2)
     for n in range(5):
         make_folio(tipo, anio=Y, numero=8000 + n, rangoId=1)
+    # Mismo número en otro año: el corte de lote cae en medio de un empate.
+    make_folio(tipo, anio=Y - 1, numero=8001, rangoId=2)
     db.session.commit()
-    resp = auth_client.get(f'/reportes/export/excel?anioCert={Y}')
+    resp = auth_client.get('/reportes/export/excel')
     rows = list(load_workbook(BytesIO(resp.data)).active.iter_rows(values_only=True))
-    assert [r[0] for r in rows[1:]] == [8000, 8001, 8002, 8003, 8004]
+    assert [r[0] for r in rows[1:]] == [8000, 8001, 8001, 8002, 8003, 8004]

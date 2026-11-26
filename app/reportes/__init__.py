@@ -6,7 +6,9 @@ from app.models.entrega_folio import EntregaFolio
 from app.models.devolucion_folio import DevolucionFolio
 from app.models.tipo_certificado import TipoCertificado
 from app.models.centro import Centro
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import selectinload
+from app.extensions import db
 from app.services.excel import celda_segura
 from app.services.kpis import conteos_folios
 from app.services.pdf import encabezado_pdf
@@ -43,11 +45,40 @@ def _get_stats(anio=None, tipo_id=None, centro_id=None, estado=None):
     return conteos_folios(_build_query(anio, tipo_id, centro_id, estado))
 
 
-# Lote de filas por viaje a la DB en los exports (yield_per): la memoria del
-# worker queda acotada aunque el reporte tenga decenas de miles de folios.
+# Lote de filas por viaje a la DB en los exports: la memoria del worker queda
+# acotada aunque el reporte tenga decenas de miles de folios.
 LOTE_EXPORT = 1000
 # Ancho fijo de columna del Excel (write_only no permite medir el contenido).
 ANCHO_MIN_COLUMNA = 12
+
+
+def _folios_por_lotes(query):
+    """Itera los folios de `query` en orden (folio, id), LOTE_EXPORT por consulta.
+
+    Paginación por clave (keyset), no yield_per: en MariaDB/PyMySQL yield_per
+    abre un cursor sin buffer y las consultas de selectinload de cada lote
+    corren en la MISMA conexión, lo que descarta el resto del stream ("Previous
+    unbuffered result was left incomplete") — el export salía con solo el
+    primer lote. SQLite (tests) no reproduce el corte.
+    """
+    ultimo = None
+    while True:
+        lote_q = query
+        if ultimo is not None:
+            folio, fid = ultimo
+            lote_q = lote_q.filter(or_(
+                Folio.folio > folio,
+                and_(Folio.folio == folio, Folio.id > fid)))
+        lote = lote_q.order_by(Folio.folio, Folio.id).limit(LOTE_EXPORT).all()
+        yield from lote
+        if len(lote) < LOTE_EXPORT:
+            return
+        ultimo = (lote[-1].folio, lote[-1].id)
+        # Suelta los folios del lote ya escrito: sin esto el identity map los
+        # retiene todos hasta el fin del request. Solo los folios: expunge_all
+        # también desligaría al usuario logueado (current_user).
+        for f in lote:
+            db.session.expunge(f)
 
 
 def _add_eager_loading(query):
@@ -187,7 +218,7 @@ def export_excel():
 
     query = _build_query(anio, tipo_id, centro_id, estado)
     query = _add_eager_loading(query)
-    folios = query.order_by(Folio.folio, Folio.id).yield_per(LOTE_EXPORT)
+    folios = _folios_por_lotes(query)
 
     # write_only: openpyxl no guarda el árbol de celdas en memoria (un
     # Workbook normal con 50k filas × 12 columnas pesa cientos de MB).
