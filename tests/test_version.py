@@ -32,3 +32,37 @@ def test_sidebar_muestra_la_version(admin_client):
     assert bloque, 'el sidebar tiene footer con versión'
     assert f'v{leer_version()}' in bloque.group(0)
     assert 'v1.0.0' not in text, 'sin versión hardcodeada'
+
+
+# --- La documentación de despliegue sigue a VERSION ---
+# Si se sube VERSION y se olvida actualizar el tag citado, los servidores
+# seguirían bajando la imagen anterior (o la doc de Docker Hub quedaría vieja).
+
+RAIZ = Path(__file__).resolve().parent.parent
+
+
+def test_compose_de_despliegue_usa_la_version_actual():
+    compose = (RAIZ / 'docker-compose.deploy.yml').read_text(encoding='utf-8')
+    tags = set(re.findall(r'm809/folios-gestion:([0-9][\w.]*)', compose))
+    assert tags == {leer_version()}, f'tags en el compose {tags} ≠ VERSION'
+
+
+def test_readme_y_dockerhub_citan_la_version_actual():
+    v = leer_version()
+    readme = (RAIZ / 'README.md').read_text(encoding='utf-8')
+    assert f'(tags: `{v}`, `latest`)' in readme
+    hub = (RAIZ / 'docker-hub-description.md').read_text(encoding='utf-8')
+    assert f'image: m809/folios-gestion:{v}' in hub
+    assert f'`m809/folios-gestion:{v}` — versión fija' in hub
+    assert f'Novedades de {v}' in hub, 'falta la sección de novedades de la versión'
+
+
+def test_descripcion_dockerhub_valida():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        'dockerhub_descripcion', RAIZ / 'scripts' / 'dockerhub_descripcion.py')
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    datos = mod.payload()
+    assert 0 < len(datos['description']) <= 100
+    assert datos['full_description'].startswith('# folios-gestion')

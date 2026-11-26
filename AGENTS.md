@@ -44,6 +44,8 @@ FLASK_APP=run.py venv/bin/flask db check                # esquema == modelos
 
 Test suite exists (`tests/`, pytest; `requirements-dev.txt` incluye `requirements.txt`). No linter, formatter, or typecheck commands exist in this repo. Python 3.11 (`.python-version`, igual que el Dockerfile): un venv de otra versión del sistema se rompe al actualizar Python (`No module named 'encodings'`) → recrearlo con `uv venv -p 3.11 venv`.
 
+Release de la imagen: `DOCKERHUB_USERNAME=… DOCKERHUB_TOKEN=… scripts/publicar_imagen.sh` (exige árbol limpio, HEAD == origin, VERSION citado en README/compose deploy/descripción Hub y tag inexistente en Hub; build + push `:<VERSION>`/`:latest` + descripción vía `scripts/dockerhub_descripcion.py [--dry-run]`). Credenciales Hub solo por entorno, nunca de `~/.docker/config.json`.
+
 Dependencias: `venv/bin/pip-audit -r requirements.txt` (en `requirements-dev.txt`) antes de cada release — las versiones están fijadas y los CVE no llegan solos.
 
 ## Environment
