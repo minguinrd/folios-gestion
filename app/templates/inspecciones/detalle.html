@@ -2,6 +2,8 @@
 {% from 'components/pagination.html' import render_pagination %}
 
 {% block title %}{{ chequeo['titulo'] }} — Inspecciones{% endblock %}
+{% from 'components/migas.html' import migas %}
+{% block migas %}{{ migas([('Inspecciones', url_for('inspecciones.index')), (chequeo['titulo'], none)]) }}{% endblock %}
 
 {% block content %}
 <div class="mb-4">

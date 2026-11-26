@@ -1,6 +1,8 @@
 {% extends 'base.html' %}
 
 {% block title %}Importar Folios{% endblock %}
+{% from 'components/migas.html' import migas %}
+{% block migas %}{{ migas([('Folios', url_for('folios.index')), ('Validar nulos' if modo|default('digitado') == 'nulo' else 'Validar digitado', none)]) }}{% endblock %}
 
 {% block content %}
 {% set modo = modo|default('digitado') %}

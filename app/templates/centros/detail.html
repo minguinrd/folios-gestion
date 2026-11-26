@@ -2,6 +2,8 @@
 {% block datatables_css %}{% include 'components/datatables_css.html' %}{% endblock %}
 
 {% block title %}Detalle: {{ centro.name }}{% endblock %}
+{% from 'components/migas.html' import migas %}
+{% block migas %}{{ migas([('Centros', url_for('centros.index')), (centro.name, none)]) }}{% endblock %}
 {% block datatables_js %}{% include 'components/datatables_js.html' %}{% endblock %}
 
 {% block content %}

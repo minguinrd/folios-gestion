@@ -1,0 +1,16 @@
+{#- Migas de pan: items = [(texto, url | none), ...]; el último es la página actual.
+    "Inicio" (dashboard) va siempre primero. -#}
+{% macro migas(items) %}
+<nav aria-label="Ruta de navegación">
+    <ol class="breadcrumb small mb-2">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.index') }}" class="text-decoration-none">Inicio</a></li>
+        {% for texto, url in items %}
+            {% if url and not loop.last %}
+            <li class="breadcrumb-item"><a href="{{ url }}" class="text-decoration-none">{{ texto }}</a></li>
+            {% else %}
+            <li class="breadcrumb-item active" aria-current="page">{{ texto }}</li>
+            {% endif %}
+        {% endfor %}
+    </ol>
+</nav>
+{% endmacro %}

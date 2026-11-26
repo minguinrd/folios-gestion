@@ -157,3 +157,75 @@ def test_validaciones_agrupadas_en_menu(admin_client):
 
 def test_menu_validar_oculto_sin_permisos(auth_client):
     assert 'id="menu-validar"' not in auth_client.get('/folios/').get_data(as_text=True)
+
+
+# --- Migas de pan ---
+
+
+def _migas(html):
+    nav = re.search(r'<nav aria-label="Ruta de navegación">(.*?)</nav>', html, re.S)
+    assert nav, 'faltan las migas de pan'
+    return [re.sub(r'\s+', ' ', t).strip()
+            for t in re.findall(r'<li class="breadcrumb-item[^"]*"[^>]*>(.*?)</li>', nav.group(1), re.S)]
+
+
+def test_migas_detalle_y_objetivos_de_centro(admin_client, centro):
+    detalle = _migas(admin_client.get(f'/centros/{centro.id}/detail').get_data(as_text=True))
+    assert len(detalle) == 3
+    assert 'Inicio' in detalle[0] and 'href="/centros/"' in detalle[1]
+    assert detalle[2] == centro.name, 'la página actual va sin enlace'
+    obj = _migas(admin_client.get(f'/centros/{centro.id}/objetivos').get_data(as_text=True))
+    assert f'href="/centros/{centro.id}/detail"' in obj[2] and obj[3] == 'Objetivos'
+
+
+def test_migas_importar_nulos_y_digitado(admin_client):
+    assert _migas(admin_client.get('/folios/importar-nulos').get_data(as_text=True))[-1] == 'Validar nulos'
+    assert _migas(admin_client.get('/folios/importar').get_data(as_text=True))[-1] == 'Validar digitado'
+
+
+def test_migas_en_formularios_de_movimientos(admin_client, tipo):
+    for url, ultimo in (('/entregas/create', 'Nueva entrega'),
+                        ('/devoluciones/create', 'Nueva devolución'),
+                        ('/recepcion/create', 'Nueva recepción'),
+                        ('/usuarios/create', 'Nuevo usuario')):
+        assert _migas(admin_client.get(url).get_data(as_text=True))[-1] == ultimo, url
+
+
+def test_listados_principales_sin_migas(admin_client):
+    for url in ('/folios/', '/centros/', '/dashboard/'):
+        assert 'Ruta de navegación' not in admin_client.get(url).get_data(as_text=True), url
+
+
+def test_todas_las_pantallas_con_migas_renderizan(admin_client, admin, tipo, centro,
+                                                  folio_entregado, operador):
+    """Humo: las 23 plantillas con migas abren sin error y muestran la ruta."""
+    from datetime import date
+    from app.models.devolucion_folio import DevolucionFolio
+    from app.models.recepcion_folio import RecepcionFolio
+    rec = RecepcionFolio(fecha=date(2026, 1, 5), anioCert=2026, tipoCert_id=tipo.id,
+                         folioInicial=5000, folioFinal=5001, rangoId=77, userId=admin.id)
+    dev_folio = make_folio(tipo, numero=6000, estado='devuelto', rangoId=78)
+    from app.models.entrega_folio import EntregaFolio
+    db.session.add_all([rec, EntregaFolio(folio_id=dev_folio.id, fechaEntrega=date(2026, 2, 1),
+                                          centroId=centro.id, userId=admin.id)])
+    db.session.flush()
+    dev = DevolucionFolio(folio_id=dev_folio.id, fechaDevolucion=date(2026, 3, 1),
+                          centroId=centro.id, userId=admin.id)
+    db.session.add(dev)
+    db.session.commit()
+    urls = [
+        '/centros/create', f'/centros/{centro.id}/detail', f'/centros/{centro.id}/edit',
+        '/centros/importar', f'/centros/{centro.id}/objetivos',
+        '/certificados/create', f'/certificados/{tipo.id}/edit',
+        '/devoluciones/create', f'/devoluciones/{dev.id}/edit', '/devoluciones/importar',
+        '/entregas/create', f'/entregas/{folio_entregado.entrega.id}/edit', '/entregas/importar',
+        f'/folios/{folio_entregado.id}', '/folios/importar', '/folios/transferencias',
+        f'/permisos/{operador.id}', '/recepcion/create', f'/recepcion/{rec.id}/edit',
+        '/recepcion/importar', '/usuarios/create', f'/usuarios/{operador.id}/edit',
+        '/inspecciones/entrega-antes-recepcion',
+    ]
+    assert len(urls) == 23
+    for url in urls:
+        resp = admin_client.get(url)
+        assert resp.status_code == 200, (url, resp.status_code)
+        assert 'Ruta de navegación' in resp.get_data(as_text=True), url
