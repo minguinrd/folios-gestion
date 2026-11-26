@@ -36,7 +36,7 @@ def test_text_muted_tone_se_redefine_en_dark():
 
 def test_login_no_carga_datatables(client):
     html = client.get('/auth/login').get_data(as_text=True)
-    assert 'datatables.net' not in html, (
+    assert 'vendor/datatables/' not in html, (
         'el login no usa tablas: no debe cargar DataTables')
     assert '.DataTable(' not in html, 'el init de DataTables no debe servirse'
 
@@ -45,7 +45,7 @@ def test_folios_listado_no_carga_datatables(auth_client, app, tipo):
     make_folio(tipo, anio=2026, numero=1700)
     db.session.commit()
     html = auth_client.get('/folios/').get_data(as_text=True)
-    assert 'datatables.net' not in html, (
+    assert 'vendor/datatables/' not in html, (
         '/folios/ usa paginación propia, no DataTables')
 
 
