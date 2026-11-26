@@ -67,6 +67,9 @@ body {
     overflow-y: auto;
     overscroll-behavior: contain; /* el scroll del menú no "fuga" al contenido */
     background-color: var(--sidebar-bg) !important; /* pisa la utilidad bg-dark */
+    /* Base clara propia: ningún texto del menú hereda el color del body
+       (casi negro en tema claro → invisible sobre el fondo oscuro). */
+    color: var(--sidebar-text);
 }
 
 .sidebar.collapsed {

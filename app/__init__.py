@@ -6,6 +6,37 @@ from app.config import Config, apply_runtime_env
 from app.extensions import db, login_manager, migrate, csrf, limiter
 
 
+def _registrar_huella_static(app):
+    """url_for('static', …) agrega ?v=<sha256[:12] del contenido> a los assets propios.
+
+    Sin esto, tras desplegar una imagen nueva el navegador podía seguir usando
+    un main.css viejo en caché (caché heurística por Last-Modified) y mezclar
+    HTML nuevo con CSS viejo. vendor/ queda fuera: ya versiona en la ruta y
+    lleva SRI. La huella se calcula una vez por archivo y proceso.
+    """
+    import hashlib
+    import os
+
+    cache = {}
+
+    @app.url_defaults
+    def _huella(endpoint, values):
+        if endpoint != 'static' or 'v' in values:
+            return
+        filename = values.get('filename') or ''
+        if filename.startswith('vendor/'):
+            return
+        if filename not in cache:
+            ruta = os.path.join(app.static_folder, filename)
+            try:
+                with open(ruta, 'rb') as f:
+                    cache[filename] = hashlib.sha256(f.read()).hexdigest()[:12]
+            except OSError:
+                cache[filename] = None
+        if cache[filename]:
+            values['v'] = cache[filename]
+
+
 def create_app(config_class=None):
     # Tipos de fuentes de static/vendor: python:3.11-slim no trae
     # /etc/mime.types y las servía como application/octet-stream.
@@ -23,6 +54,8 @@ def create_app(config_class=None):
     migrate.init_app(app, db)
     csrf.init_app(app)
     limiter.init_app(app)
+
+    _registrar_huella_static(app)
 
     if app.config.get('TRUST_PROXY'):
         from werkzeug.middleware.proxy_fix import ProxyFix
