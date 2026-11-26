@@ -20,10 +20,10 @@ mkdir -p /opt/folios && cd /opt/folios
 #   docker-compose.deploy.yml   compose que usa esta imagen (no compila)
 #   .env.example                plantilla de variables
 #   docs/despliegue.md          guía completa
-# Código y docs: https://github.com/soportedpss1/folios-gestion
-curl -fsSLO https://raw.githubusercontent.com/soportedpss1/folios-gestion/main/docker-compose.deploy.yml
-curl -fsSLO https://raw.githubusercontent.com/soportedpss1/folios-gestion/main/.env.example
-curl -fsSL -o despliegue.md https://raw.githubusercontent.com/soportedpss1/folios-gestion/main/docs/despliegue.md
+# Código y docs: https://github.com/minguinrd/folios-gestion
+curl -fsSLO https://raw.githubusercontent.com/minguinrd/folios-gestion/main/docker-compose.deploy.yml
+curl -fsSLO https://raw.githubusercontent.com/minguinrd/folios-gestion/main/.env.example
+curl -fsSL -o despliegue.md https://raw.githubusercontent.com/minguinrd/folios-gestion/main/docs/despliegue.md
 
 cp .env.example .env && chmod 600 .env
 # editar .env: SECRET_KEY, DB_PASSWORD, DB_ROOT_PASSWORD
@@ -49,7 +49,7 @@ El compose de despliegue usa la imagen publicada:
 ```yaml
 services:
   app:
-    image: soportedpss1/folios-gestion:1.10.0
+    image: m809/folios-gestion:1.10.0
     ports:
       - "8089:8089"
     env_file: .env
@@ -90,9 +90,9 @@ services:
 
 ## Tags
 
-- `soportedpss1/folios-gestion:1.10.0` — versión fija, recomendada en
+- `m809/folios-gestion:1.10.0` — versión fija, recomendada en
   producción
-- `soportedpss1/folios-gestion:latest` — última build, para pruebas
+- `m809/folios-gestion:latest` — última build, para pruebas
 
 Para probar otra versión sin editar el compose: `FOLIOS_IMAGE=...:tag` en el
 `.env`.

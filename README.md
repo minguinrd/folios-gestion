@@ -29,8 +29,8 @@ del repo, que construye desde el código):
 
 ```bash
 mkdir -p /opt/folios && cd /opt/folios
-curl -fsSLO https://raw.githubusercontent.com/soportedpss1/folios-gestion/main/docker-compose.deploy.yml
-curl -fsSLO https://raw.githubusercontent.com/soportedpss1/folios-gestion/main/.env.example
+curl -fsSLO https://raw.githubusercontent.com/minguinrd/folios-gestion/main/docker-compose.deploy.yml
+curl -fsSLO https://raw.githubusercontent.com/minguinrd/folios-gestion/main/.env.example
 
 cp .env.example .env && chmod 600 .env   # editar SECRET_KEY y claves DB
 mkdir -p scans secrets && sudo chown -R 1000:1000 scans secrets
@@ -46,7 +46,7 @@ docker compose -f docker-compose.deploy.yml exec app python init_db.py
 curl -fs http://localhost:8089/health        # {"status": "ok"}
 ```
 
-Imagen: `soportedpss1/folios-gestion:<tag>` (tags: `1.10.0`, `latest`).
+Imagen: `m809/folios-gestion:<tag>` (tags: `1.10.0`, `latest`).
 La **única fuente** de la versión es el archivo [`VERSION`](VERSION) de la raíz:
 viaja en la imagen (`COPY . .`), se lee al arrancar (`app/version.py`) y se
 muestra en el footer del sidebar. El tag de la imagen debe coincidir con él.

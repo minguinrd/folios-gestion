@@ -1,7 +1,7 @@
 # Despliegue en otro servidor
 
 Guía para levantar **folios de gestión** en un servidor ajeno usando la imagen
-publicada en Docker Hub (`soportedpss1/folios-gestion`), sin necesidad de
+publicada en Docker Hub (`m809/folios-gestion`), sin necesidad de
 código fuente ni de compilar.
 
 Contenido:
@@ -46,10 +46,10 @@ mano o se descargan desde donde almacene el release):
 
 ```bash
 mkdir -p /opt/folios && cd /opt/folios
-# desde GitHub (repo público: https://github.com/soportedpss1/folios-gestion)
-curl -fsSLO https://raw.githubusercontent.com/soportedpss1/folios-gestion/main/docker-compose.deploy.yml
-curl -fsSLO https://raw.githubusercontent.com/soportedpss1/folios-gestion/main/.env.example
-curl -fsSL -o despliegue.md https://raw.githubusercontent.com/soportedpss1/folios-gestion/main/docs/despliegue.md
+# desde GitHub (repo público: https://github.com/minguinrd/folios-gestion)
+curl -fsSLO https://raw.githubusercontent.com/minguinrd/folios-gestion/main/docker-compose.deploy.yml
+curl -fsSLO https://raw.githubusercontent.com/minguinrd/folios-gestion/main/.env.example
+curl -fsSL -o despliegue.md https://raw.githubusercontent.com/minguinrd/folios-gestion/main/docs/despliegue.md
 
 # alternativa: copiar los archivos desde otra máquina
 scp usuario@origen:/ruta/proyecto/{docker-compose.deploy.yml,.env.example} .
@@ -105,7 +105,7 @@ DB_ROOT_PASSWORD=cambie-esta-clave-de-root-solo-para-la-primera-vez
 #SHEET_SYNC_TOKEN=
 
 # --- Imagen a desplegar (opcional, para probar otra versión sin editar el compose) ---
-#FOLIOS_IMAGE=soportedpss1/folios-gestion:1.3.0
+#FOLIOS_IMAGE=m809/folios-gestion:1.3.0
 
 # --- Zona horaria de las fechas mostradas en la UI ---
 #TZ=America/Havana
@@ -296,7 +296,7 @@ para que la app no sea visible desde Internet sin el proxy.
 
 ```bash
 cd /opt/folios
-# opcional: fijar versión en .env → FOLIOS_IMAGE=soportedpss1/folios-gestion:1.3.0
+# opcional: fijar versión en .env → FOLIOS_IMAGE=m809/folios-gestion:1.3.0
 docker compose -f docker-compose.deploy.yml pull
 docker compose -f docker-compose.deploy.yml up -d
 docker compose -f docker-compose.deploy.yml exec -e FLASK_APP=run.py app flask db upgrade
@@ -306,6 +306,16 @@ Antes de actualizar en producción: dump SQL (§7). Las migraciones son
 adhierentes: una base nueva y una actualizada quedan en el mismo esquema.
 
 **De 1.9.x a 1.10.0** (además de lo anterior):
+
+- **La imagen cambió de cuenta en Docker Hub:** desde 1.10.0 se publica en
+  `m809/folios-gestion` (hasta 1.9.0 era `soportedpss1/folios-gestion`, que
+  ya no recibe versiones nuevas). Antes del `pull`, baje el
+  `docker-compose.deploy.yml` nuevo y revise que `FOLIOS_IMAGE` en `.env`
+  (si lo usa) apunte a `m809/...`:
+  ```bash
+  curl -fsSLO https://raw.githubusercontent.com/minguinrd/folios-gestion/main/docker-compose.deploy.yml
+  grep FOLIOS_IMAGE .env   # si aparece soportedpss1/..., cámbielo a m809/folios-gestion:1.10.0
+  ```
 
 - `flask db upgrade` aplica `0009` (CHECK de `folios.estado`) y `0010`
   (objetivos por centro). Si `0009` aborta listando estados fuera de
