@@ -53,7 +53,7 @@ El compose de despliegue usa la imagen publicada:
 ```yaml
 services:
   app:
-    image: m809/folios-gestion:1.11.1
+    image: m809/folios-gestion:1.12.0
     ports:
       - "8089:8089"
     env_file: .env
@@ -89,24 +89,35 @@ services:
   admin por defecto; un admin puede concederlos.
 - **Copias:** respaldo JSON desde la UI (Copias) o dump SQL desde el
   contenedor `db` con `mariadb-dump` (ver `docs/despliegue.md`).
-- **Migraciones:** `FLASK_APP=run.py flask db upgrade` dentro del contenedor
-  `app`; bases creadas con `init_db.py` (sin `alembic_version`) requieren
+- **Migraciones:** desde 1.12.0 el contenedor `app` las aplica solo al
+  arrancar (`[auto-migrate]` en `docker compose logs app`;
+  `AUTO_MIGRATE=false` lo desactiva); bases creadas con `init_db.py` (sin `alembic_version`) requieren
   `flask db stamp <revisión>` una vez — ver README → "Síntoma Table '…'
   already exists".
 - **Rotar credenciales MariaDB:** cambiar `.env` no cambia la contraseña ya
   inicializada en el volumen — ver README (Rotar credenciales de MariaDB).
 
-## Actualizar desde 1.10.x
+## Actualizar desde 1.10.x / 1.11.x
 
 ```bash
 cd /opt/folios
-# respaldo, compose nuevo (tag 1.11.1) y migración 0011
+# respaldo y compose nuevo (tag 1.12.0); las migraciones se aplican solas al arrancar
 docker compose -f docker-compose.deploy.yml exec db sh -c \
-  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mariadb-dump -uroot "$MYSQL_DATABASE"' > respaldo_pre_1.11.sql
+  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mariadb-dump -uroot "$MYSQL_DATABASE"' > respaldo_pre_1.12.sql
 curl -fsSLO https://raw.githubusercontent.com/minguinrd/folios-gestion/main/docker-compose.deploy.yml
 docker compose -f docker-compose.deploy.yml pull && docker compose -f docker-compose.deploy.yml up -d
-docker compose -f docker-compose.deploy.yml exec -e FLASK_APP=run.py app flask db upgrade
+docker compose -f docker-compose.deploy.yml logs app | grep auto-migrate
 ```
+
+Novedades de 1.12.0:
+
+- **Recibido por** en la nueva entrega: nombre de quien recibe los folios
+  (obligatorio al crear, editable después). Aparece en el listado de entregas
+  y como columna **Entregado a** en los reportes PDF y Excel. Migración `0012`.
+- Fecha y centro al inicio del formulario de entrega, con el panel de
+  sugeridos debajo.
+- **Migraciones automáticas** al arrancar el contenedor `app` (el
+  `sync-worker` no migra). Si fallan, el contenedor no arranca.
 
 Novedades de 1.11.1: los títulos de sección del menú lateral ya no quedan
 invisibles en modo claro tras actualizar (el navegador reusaba CSS viejo en
@@ -154,7 +165,7 @@ en reportes grandes. Detalle en `docs/despliegue.md` §9.
 
 ## Tags
 
-- `m809/folios-gestion:1.11.1` — versión fija, recomendada en
+- `m809/folios-gestion:1.12.0` — versión fija, recomendada en
   producción
 - `m809/folios-gestion:latest` — última build, para pruebas
 

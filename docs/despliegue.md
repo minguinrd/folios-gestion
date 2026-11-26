@@ -316,6 +316,12 @@ FLASK_APP=run.py app flask db upgrade`.
 Antes de actualizar en producción: dump SQL (§7). Las migraciones son
 adhierentes: una base nueva y una actualizada quedan en el mismo esquema.
 
+**De 1.11.x a 1.12.0:** `pull` + `up -d`; la imagen ya aplica sola la
+migración `0012` (columna `entrega_folios.recibidoPor`) al arrancar. Nuevo
+campo **Recibido por** en la entrega (obligatorio al crear) y columna
+**Entregado a** en los reportes PDF/Excel. Fecha y centro pasan al inicio del
+formulario de entrega.
+
 **De 1.11.0 a 1.11.1:** sin migración (`pull` + `up -d`). Corrige los
 títulos de sección del menú lateral, invisibles en modo claro cuando el
 navegador reusaba un CSS viejo en caché: los CSS/JS propios llevan ahora
