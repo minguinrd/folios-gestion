@@ -658,6 +658,27 @@ body {
         transform: translateX(0);
     }
 
+    /* Escritorio (sin pantalla táctil): menú más compacto para que las tres
+       secciones del admin entren en ~900 px de alto sin desplazar. En móvil
+       se mantienen los ~44 px de alto táctil (media query de arriba). */
+    .sidebar .nav-link {
+        padding: 0.42rem 1rem;
+    }
+
+    .sidebar .nav-item.mb-1 {
+        margin-bottom: 0.125rem !important;
+    }
+
+    .sidebar-heading {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+        margin-bottom: 0.5rem !important;
+    }
+
+    .sidebar-section {
+        padding-top: 0.5rem;
+    }
+
     .sidebar-backdrop.show {
         display: none;
     }
