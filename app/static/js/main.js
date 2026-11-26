@@ -29,8 +29,46 @@ window.AppToast = (function () {
             cont.id = 'flash-toasts';
             document.body.appendChild(cont);
         }
+        posicionar(cont);
         return cont;
     }
+
+    // Los avisos van arriba a la derecha, pero DEBAJO del encabezado de la
+    // página (título + botones Excel/PDF/Volver…): antes lo tapaban mientras
+    // estaban visibles. Con la página desplazada el encabezado ya no está a la
+    // vista y vuelven a quedar bajo la barra superior. Abajo no van: ahí
+    // taparían el botón de enviar de los formularios.
+    const SEPARACION = 12;
+    const TOPE_SUPERIOR = 0.4; // nunca más abajo del 40 % de la ventana
+
+    function posicionar(cont) {
+        cont = cont || document.getElementById('flash-toasts');
+        if (!cont) return;
+        const navbar = document.querySelector('nav.navbar');
+        let top = (navbar ? navbar.getBoundingClientRect().bottom : 0) + SEPARACION;
+        const encabezado = document.querySelector('#contenido > .d-flex.justify-content-between');
+        if (encabezado) {
+            const fondo = encabezado.getBoundingClientRect().bottom;
+            if (fondo > top - SEPARACION) {
+                top = Math.min(fondo + SEPARACION, window.innerHeight * TOPE_SUPERIOR);
+            }
+        }
+        cont.style.top = Math.max(top, 0) + 'px';
+    }
+
+    let posicionPendiente = false;
+    function reposicionar() {
+        if (posicionPendiente) return;
+        posicionPendiente = true;
+        requestAnimationFrame(function () {
+            posicionPendiente = false;
+            // Sin crear el contenedor: solo si ya hay avisos en pantalla.
+            const cont = document.getElementById('flash-toasts');
+            if (cont && cont.querySelector('.app-toast:not(.closing)')) posicionar(cont);
+        });
+    }
+    window.addEventListener('scroll', reposicionar, { passive: true });
+    window.addEventListener('resize', reposicionar);
 
     function visibles() {
         return contenedor().querySelectorAll(
@@ -154,6 +192,7 @@ window.AppToast = (function () {
     function iniciar() {
         const cont = document.getElementById('flash-toasts');
         if (!cont) return;
+        posicionar(cont);
         cont.querySelectorAll('.app-toast').forEach((toast, indice) => {
             vigilar(toast);
             if (indice >= MAX_VISIBLE) {
