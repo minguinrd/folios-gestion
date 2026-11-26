@@ -44,8 +44,9 @@ def create_app(config_class=None):
     if warn:
         warn(app.logger)
 
-    from app.utils import a_hora_local
+    from app.utils import a_hora_local, formato_miles
     app.jinja_env.filters['localtime'] = a_hora_local
+    app.jinja_env.filters['miles'] = formato_miles
 
     # Plantillas: {{ puede('centros.importar') }} — rol default OR grant.
     from app.services.permisos import puede

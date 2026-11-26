@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% from 'components/pagination.html' import render_pagination %}
+{% from 'components/pagination.html' import render_pagination, render_conteo, boton_limpiar %}
 
 {% block title %}Devoluciones de Folios{% endblock %}
 
@@ -51,15 +51,14 @@
                     <button type="submit" class="btn btn-primary btn-sm flex-fill">
                         <i class="fas fa-search me-1"></i>Filtrar
                     </button>
-                    <a href="{{ url_for('devoluciones.index') }}" class="btn btn-outline-secondary btn-sm" title="Limpiar filtros" aria-label="Limpiar filtros">
-                        <i class="fas fa-times" aria-hidden="true"></i>
-                    </a>
+                    {{ boton_limpiar(url_for('devoluciones.index')) }}
                 </div>
             </div>
         </form>
     </div>
 </div>
 
+{{ render_conteo(pagination) }}
 <div class="card border-0 shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">

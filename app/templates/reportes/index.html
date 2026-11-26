@@ -26,10 +26,10 @@
                 <label class="form-label small fw-semibold" for="anioCert">Año</label>
                 <select id="anioCert" name="anioCert" class="form-select form-select-sm">
                     <option value="">Todos</option>
-                    {% for y in range(anio_actual - 5, anio_actual + 2) %}
+                    {% for y in anios %}
                         <option value="{{ y }}" {% if current_anio == y %}selected{% endif %}>{{ y }}</option>
                     {% endfor %}
-                    {% if current_anio and current_anio not in range(anio_actual - 5, anio_actual + 2) %}
+                    {% if current_anio and current_anio not in anios %}
                         <option value="{{ current_anio }}" selected>{{ current_anio }}</option>
                     {% endif %}
                 </select>

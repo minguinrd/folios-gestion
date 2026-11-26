@@ -16,10 +16,13 @@
                     aria-label="Cambiar a tema oscuro" aria-pressed="false">
                 <i class="fas fa-moon" aria-hidden="true"></i>
             </button>
+            {# Solo para quien usa la sincronización: al resto no le dice nada (main.js tolera su ausencia) #}
+            {% if puede('sincronizacion.usar') %}
             <span class="text-white-50 small me-3 d-none d-md-inline" id="sync-timer"
                   title="Próxima sincronización automática">
                 <i class="fas fa-sync-alt me-1" aria-hidden="true"></i><span id="sync-timer-text">…</span>
             </span>
+            {% endif %}
             <span class="text-white me-2 small text-truncate" style="max-width: 140px;">
                 <i class="fas fa-user-circle me-1" aria-hidden="true"></i>
                 {{ current_user.username }}

@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from 'components/estados.html' import estado_badge %}
 
 {% block title %}Detalle Folio #{{ folio.folio }}{% endblock %}
 
@@ -118,15 +119,7 @@
                     <tr>
                         <td class="text-muted">Estado</td>
                         <td>
-                            {% if folio.estado == 'disponible' %}
-                                <span class="badge bg-secondary fs-6">Disponible</span>
-                            {% elif folio.estado == 'entregado' %}
-                                <span class="badge bg-danger fs-6">Entregado</span>
-                            {% elif folio.estado == 'devuelto' %}
-                                <span class="badge bg-success fs-6">Devuelto</span>
-                            {% elif folio.estado == 'perdido' %}
-                                <span class="badge bg-warning text-dark fs-6">Perdido</span>
-                            {% endif %}
+                            {{ estado_badge(folio.estado, 'fs-6') }}
                         </td>
                     </tr>
                     <tr>
@@ -139,7 +132,7 @@
                     </tr>
                     <tr>
                         <td class="text-muted">Nulo</td>
-                        <td><i class="fas {% if folio.nulo %}fa-check-circle text-success{% else %}fa-times-circle text-muted{% endif %} me-1"></i>{% if folio.nulo %}Sí{% else %}No{% endif %}</td>
+                        <td>{% if folio.nulo %}<span class="badge bg-danger">Nulo</span>{% else %}No{% endif %}</td>
                     </tr>
                     <tr>
                         <td class="text-muted">Fecha Creación</td>

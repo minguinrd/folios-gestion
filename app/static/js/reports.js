@@ -55,15 +55,18 @@
             return;
         }
         const rows = folios.map(f => {
+            // Mismos colores que components/estados.html (Entregado azul, Nulo rojo).
             const estadoBadge = f.nulo
-                ? '<span class="badge bg-warning">Nulo</span>'
+                ? '<span class="badge bg-danger">Nulo</span>'
                 : f.estado === 'disponible'
                     ? '<span class="badge bg-secondary">Disponible</span>'
                     : f.estado === 'entregado'
-                        ? '<span class="badge bg-danger">Entregado</span>'
+                        ? '<span class="badge bg-info text-dark">Entregado</span>'
                         : f.estado === 'devuelto'
                             ? '<span class="badge bg-success">Devuelto</span>'
-                            : '<span class="badge bg-secondary">' + escapeHtml(f.estado) + '</span>';
+                            : f.estado === 'perdido'
+                                ? '<span class="badge bg-warning text-dark">Perdido</span>'
+                                : '<span class="badge bg-secondary">' + escapeHtml(f.estado) + '</span>';
             // Solo #RRGGBB válido (el form lo valida igual); igual se escapa.
             const colorSeguro = /^#[0-9A-Fa-f]{6}$/.test(String(f.tipo_color || ''))
                 ? escapeHtml(f.tipo_color) : '#6c757d';

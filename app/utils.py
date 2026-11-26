@@ -70,3 +70,8 @@ def plural(n, singular, plural=None):
     if n == 1:
         return singular
     return plural if plural is not None else singular + 's'
+
+
+def formato_miles(n):
+    """5250 → '5.250' (separador de miles en español, independiente del locale)."""
+    return f'{int(n):,}'.replace(',', '.')

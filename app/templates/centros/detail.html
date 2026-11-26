@@ -244,7 +244,7 @@
                                 <td>{{ folio.tipo_cert.name }}</td>
                                 <td>
                                     {% if folio.estado == 'entregado' %}
-                                        <span class="badge bg-danger">Entregado</span>
+                                        <span class="badge bg-info text-dark">Entregado</span>
                                     {% elif folio.estado == 'devuelto' %}
                                         <span class="badge bg-success">Devuelto</span>
                                     {% elif folio.estado == 'perdido' %}

@@ -259,16 +259,19 @@ def test_centros_lista_pdf_escapa_html(auth_client, app, centro, monkeypatch):
     assert '&lt;script&gt;' in html, 'escape ausente en PDF'
 
 
-def test_filtro_anio_con_todos_y_rango_dinamico(auth_client):
+def test_filtro_anio_con_todos_y_rango_dinamico(auth_client, tipo):
     """El select de año de Reportes estaba hardcodeado 2025-2030 sin 'Todos':
-    folios de años legítimos anteriores quedaban inexportables."""
+    folios de años legítimos anteriores quedaban inexportables. Ahora lista
+    los años con folios (más el actual)."""
     import re
     from datetime import datetime
+    anio = datetime.now().year
+    make_folio(tipo, anio=anio - 5, numero=1, rangoId=1)
+    db.session.commit()
     text = auth_client.get('/reportes/').get_data(as_text=True)
     bloque = re.search(r'<select[^>]*name="anioCert".*?</select>', text, re.S)
     assert bloque, 'el filtro de año existe'
     opciones = bloque.group(0)
     assert '<option value="">Todos</option>' in opciones, 'falta la opción Todos'
-    anio = datetime.now().year
-    assert str(anio - 5) in opciones, 'el rango debe ser dinámico hacia atrás'
+    assert str(anio - 5) in opciones, 'un año viejo con folios debe aparecer'
     assert str(anio) in opciones

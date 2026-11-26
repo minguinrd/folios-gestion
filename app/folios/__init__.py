@@ -18,7 +18,7 @@ from app.services.audit import log_audit
 from app.services.escaneos import validar_carpeta
 from app.services.movimientos import choices_centros
 from app.services.permisos import puede
-from app.services.queries import get_or_404
+from app.services.queries import anios_con_folios, get_or_404
 from app.utils import plural, quiere_json
 
 folios_bp = Blueprint('folios', __name__, url_prefix='/folios')
@@ -69,6 +69,7 @@ def index():
         pagination=pagination,
         folios=pagination.items,
         tipos=tipos,
+        anios=anios_con_folios(),
         current_anio=anio,
         current_tipo=tipo,
         current_estado=estado,

@@ -32,6 +32,7 @@
                                     <option value="{{ t.id }}"{% if t.id == tipo_actual %} selected{% endif %}>{{ t.name }}</option>
                                 {% endfor %}
                             </select>
+                            {% with con_sugerido=true %}{% include 'components/seleccion_rango.html' %}{% endwith %}
                             <div class="row g-3">
                                 <div class="col-md-8">
                                     {{ form.folio_ids(class="form-select", size="10", id="folio-select") }}
@@ -98,6 +99,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/seleccion_rango.js') }}"></script>
 <script>
     const select = document.getElementById('folio-select');
     const counter = document.getElementById('selected-count');
@@ -107,7 +109,7 @@
     // Sin campo de búsqueda: se carga el total de folios del tipo elegido
     const LIMIT = 10000;
     const HINT_TIPO = 'Seleccione un tipo de certificado para ver los folios';
-    const HINT_OK = 'Seleccione con Ctrl (o Cmd en Mac) para marcar varios';
+    const HINT_OK = 'Use Desde/Hasta para un rango, o Ctrl/Cmd + clic para elegirlos uno por uno';
 
     function updateResumen() {
         const opciones = Array.from(select.selectedOptions);
@@ -231,7 +233,43 @@
             listaSug.appendChild(li);
         });
         panelSug.classList.toggle('d-none', sugeridos.length === 0);
+        actualizarBotonSugerido();
     }
+
+    // "Usar sugerido (N)": marca los N folios disponibles de número más bajo
+    // del tipo elegido. Solo ayuda: el usuario puede ajustar antes de guardar.
+    const btnSug = document.getElementById('usar-sugerido');
+    const msgRango = document.getElementById('rango-msg');
+
+    function actualizarBotonSugerido() {
+        const tipoId = Number(tipoSelect.value) || null;
+        const s = sugeridos.find(function (x) { return x.tipo.id === tipoId; });
+        const n = s ? s.sugerido : 0;
+        btnSug.dataset.cantidad = String(n);
+        btnSug.querySelector('span').textContent = 'Usar sugerido (' + n + ')';
+        btnSug.classList.toggle('d-none', !n);
+    }
+
+    btnSug.addEventListener('click', function () {
+        const n = Number(btnSug.dataset.cantidad) || 0;
+        const candidatos = Array.from(select.options)
+            .filter(function (o) { return !o.disabled && SeleccionFolios.numeroDe(o) !== null; })
+            .sort(function (a, b) { return SeleccionFolios.numeroDe(a) - SeleccionFolios.numeroDe(b); })
+            .slice(0, n);
+        if (!candidatos.length) {
+            SeleccionFolios.avisar(msgRango, 'No hay folios disponibles de este tipo para seleccionar.', 'error');
+            return;
+        }
+        const elegidos = new Set(candidatos);
+        SeleccionFolios.seleccionar(select, function (o) { return elegidos.has(o); });
+        if (candidatos.length < n) {
+            SeleccionFolios.avisar(msgRango, 'Solo hay ' + candidatos.length + ' folios disponibles de los '
+                + n + ' sugeridos: se seleccionaron todos.', 'error');
+        } else {
+            SeleccionFolios.avisar(msgRango, 'Se seleccionaron los ' + n
+                + ' folios disponibles de número más bajo (sugerido para este centro).', 'ok');
+        }
+    });
 
     async function cargarSugeridos() {
         const t = ++seqSug;

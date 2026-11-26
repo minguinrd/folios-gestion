@@ -1,5 +1,7 @@
 """Consultas con ORM moderno (Query.get() es legacy y emite LegacyAPIWarning)."""
 
+from datetime import date
+
 from flask import abort
 
 from app.extensions import db
@@ -49,3 +51,16 @@ def resolver_usuario_nombre(nombre):
     if not usuario.activo:
         return None, f'Usuario inactivo: {texto}.'
     return usuario, None
+
+
+def anios_con_folios():
+    """Años para los filtros: los que tienen folios más el año en curso, desc.
+
+    Antes los filtros generaban un rango fijo alrededor del año actual: los
+    años viejos con datos no se podían elegir y aparecían años futuros vacíos.
+    El año en curso se incluye siempre (en enero aún no tiene folios).
+    """
+    from app.models.folio import Folio
+    anios = {a for (a,) in db.session.query(Folio.anioCert).distinct().all()}
+    anios.add(date.today().year)
+    return sorted(anios, reverse=True)

@@ -1,0 +1,32 @@
+{#- Insignias de estado de folio: única fuente de colores (listados y detalle).
+    Entregado es el estado normal de trabajo → azul/info, no rojo (rojo = error).
+    Nulo es una marca negativa → insignia roja, nunca un ✓ verde.
+    Mantener en sintonía con estadoBadge() de static/js/reports.js. -#}
+{% macro estado_badge(estado, extra='') -%}
+{%- set mapa = {
+    'disponible': ('bg-secondary', 'Disponible'),
+    'entregado': ('bg-info text-dark', 'Entregado'),
+    'devuelto': ('bg-success', 'Devuelto'),
+    'perdido': ('bg-warning text-dark', 'Perdido'),
+} -%}
+{%- set clase, texto = mapa.get(estado, ('bg-secondary', estado|capitalize)) -%}
+<span class="badge {{ clase }}{{ ' ' ~ extra if extra }}">{{ texto }}</span>
+{%- endmacro %}
+
+{#- Marca positiva (digitado/escaneado): ✓ verde o ✗ tenue, con texto para lectores. -#}
+{% macro marca_si_no(valor) -%}
+{%- if valor -%}
+<i class="fas fa-check-circle text-success" aria-hidden="true"></i><span class="visually-hidden">Sí</span>
+{%- else -%}
+<i class="fas fa-times-circle text-muted" aria-hidden="true"></i><span class="visually-hidden">No</span>
+{%- endif -%}
+{%- endmacro %}
+
+{#- Nulo: insignia roja si está anulado; guion tenue si no. -#}
+{% macro nulo_badge(valor, extra='') -%}
+{%- if valor -%}
+<span class="badge bg-danger{{ ' ' ~ extra if extra }}">Nulo</span>
+{%- else -%}
+<span class="text-muted" aria-label="No anulado">—</span>
+{%- endif -%}
+{%- endmacro %}

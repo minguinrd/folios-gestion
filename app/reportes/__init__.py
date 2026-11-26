@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 from app.extensions import db
 from app.services.excel import celda_segura
 from app.services.kpis import conteos_folios
+from app.services.queries import anios_con_folios
 from app.services.pdf import encabezado_pdf
 from markupsafe import escape
 from datetime import datetime
@@ -112,6 +113,7 @@ def index():
     return render_template('reportes/index.html',
         folios=[],
         tipos=tipos,
+        anios=anios_con_folios(),
         centros=centros,
         current_anio=current_anio,
         # El form es GET: al recargar hay que respetar lo elegido en TODOS los

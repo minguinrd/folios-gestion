@@ -1,3 +1,31 @@
+{#- Menú agrupado por secciones. Cada ítem: (endpoint, url, ícono, texto, visible).
+    `clave` es la subcadena del endpoint que lo marca activo (blueprint).
+    Una sección sin ítems visibles no muestra su título. -#}
+{%- set es_admin = current_user.is_admin() -%}
+{%- set secciones = [
+    ('Operación', [
+        ('dashboard', url_for('dashboard.index'), 'fa-tachometer-alt', 'Dashboard', true),
+        ('recepcion', url_for('recepcion.index'), 'fa-inbox', 'Recepción', puede('recepcion.ver')),
+        ('folios', url_for('folios.index'), 'fa-file-alt', 'Folios', true),
+        ('entregas', url_for('entregas.index'), 'fa-paper-plane', 'Entregas', true),
+        ('devoluciones', url_for('devoluciones.index'), 'fa-undo', 'Devoluciones', true),
+        ('centros', url_for('centros.index'), 'fa-hospital', 'Centros', true),
+        ('reportes', url_for('reportes.index'), 'fa-chart-bar', 'Reportes', true),
+        ('escaneos', url_for('escaneos.subir'), 'fa-camera', 'Escaneos', puede('escaneos.subir')),
+    ]),
+    ('Control', [
+        ('auditoria', url_for('auditoria.index'), 'fa-history', 'Auditoría', puede('auditoria.ver')),
+        ('inspecciones', url_for('inspecciones.index'), 'fa-clipboard-check', 'Inspecciones', puede('inspecciones.ver')),
+    ]),
+    ('Administración', [
+        ('usuarios', url_for('usuarios.index'), 'fa-users-cog', 'Usuarios', puede('usuarios.gestionar')),
+        ('permisos', url_for('permisos.index'), 'fa-user-shield', 'Permisos', es_admin),
+        ('certificados', url_for('certificados.index'), 'fa-certificate', 'Certificados', puede('certificados.gestionar')),
+        ('marca', url_for('marca.index'), 'fa-palette', 'Marca', es_admin),
+        ('backup', url_for('backup.index'), 'fa-archive', 'Copias', es_admin),
+        ('sincronizacion', url_for('sincronizacion.index'), 'fa-cloud-arrow-up', 'Sincronización', puede('sincronizacion.usar')),
+    ]),
+] -%}
 <div class="sidebar bg-dark" id="sidebar-wrapper">
     <div class="sidebar-heading text-center py-4 px-3 mb-3 border-bottom border-secondary">
         {% if marca.tiene_logo %}
@@ -11,135 +39,25 @@
         {% endif %}
     </div>
 
-    <ul class="nav flex-column px-2">
-        <li class="nav-item mb-1">
-            <a class="nav-link text-white-50 {% if request.endpoint and 'dashboard' in request.endpoint %}active{% endif %}"
-               href="{{ url_for('dashboard.index') }}">
-                <i class="fas fa-tachometer-alt me-2"></i> Dashboard
-            </a>
-        </li>
-
-        {% if puede('recepcion.ver') %}
-        <li class="nav-item mb-1">
-            <a class="nav-link text-white-50 {% if request.endpoint and 'recepcion' in request.endpoint %}active{% endif %}"
-               href="{{ url_for('recepcion.index') }}">
-                <i class="fas fa-inbox me-2"></i> Recepción
-            </a>
-        </li>
+    <nav aria-label="Menú principal">
+    {% for titulo, items in secciones %}
+        {% set visibles = items | selectattr(4) | list %}
+        {% if visibles %}
+        <div class="sidebar-section">{{ titulo }}</div>
+        <ul class="nav flex-column px-2 mb-2">
+            {% for clave, url, icono, texto, _ in visibles %}
+            {% set activo = request.endpoint and request.endpoint.split('.')[0] == clave %}
+            <li class="nav-item mb-1">
+                <a class="nav-link text-white-50 {% if activo %}active{% endif %}" href="{{ url }}"
+                   {% if activo %}aria-current="page"{% endif %}>
+                    <i class="fas {{ icono }} me-2" aria-hidden="true"></i> {{ texto }}
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
         {% endif %}
-
-        <li class="nav-item mb-1">
-            <a class="nav-link text-white-50 {% if request.endpoint and 'folios' in request.endpoint %}active{% endif %}"
-               href="{{ url_for('folios.index') }}">
-                <i class="fas fa-file-alt me-2"></i> Folios
-            </a>
-        </li>
-
-        <li class="nav-item mb-1">
-            <a class="nav-link text-white-50 {% if request.endpoint and 'entregas' in request.endpoint %}active{% endif %}"
-               href="{{ url_for('entregas.index') }}">
-                <i class="fas fa-paper-plane me-2"></i> Entregas
-            </a>
-        </li>
-
-        <li class="nav-item mb-1">
-            <a class="nav-link text-white-50 {% if request.endpoint and 'devoluciones' in request.endpoint %}active{% endif %}"
-               href="{{ url_for('devoluciones.index') }}">
-                <i class="fas fa-undo me-2"></i> Devoluciones
-            </a>
-        </li>
-
-        <li class="nav-item mb-1">
-            <a class="nav-link text-white-50 {% if request.endpoint and 'centros' in request.endpoint %}active{% endif %}"
-               href="{{ url_for('centros.index') }}">
-                <i class="fas fa-hospital me-2"></i> Centros
-            </a>
-        </li>
-
-        <li class="nav-item mb-1">
-            <a class="nav-link text-white-50 {% if request.endpoint and 'reportes' in request.endpoint %}active{% endif %}"
-               href="{{ url_for('reportes.index') }}">
-                <i class="fas fa-chart-bar me-2"></i> Reportes
-            </a>
-        </li>
-
-        <hr class="border-secondary my-2">
-
-        {% if puede('escaneos.subir') %}
-        <li class="nav-item mb-1">
-            <a class="nav-link text-white-50 {% if request.endpoint and 'escaneos' in request.endpoint %}active{% endif %}"
-               href="{{ url_for('escaneos.subir') }}">
-                <i class="fas fa-camera me-2"></i> Escaneos
-            </a>
-        </li>
-        {% endif %}
-
-        {% if puede('usuarios.gestionar') %}
-        <li class="nav-item mb-1">
-            <a class="nav-link text-white-50 {% if request.endpoint and 'usuarios' in request.endpoint %}active{% endif %}"
-               href="{{ url_for('usuarios.index') }}">
-                <i class="fas fa-users-cog me-2"></i> Usuarios
-            </a>
-        </li>
-        {% endif %}
-
-        {% if current_user.is_admin() %}
-        <li class="nav-item mb-1">
-            <a class="nav-link text-white-50 {% if request.endpoint and 'permisos' in request.endpoint %}active{% endif %}"
-               href="{{ url_for('permisos.index') }}">
-                <i class="fas fa-user-shield me-2"></i> Permisos
-            </a>
-        </li>
-        <li class="nav-item mb-1">
-            <a class="nav-link text-white-50 {% if request.endpoint and 'marca' in request.endpoint %}active{% endif %}"
-               href="{{ url_for('marca.index') }}">
-                <i class="fas fa-palette me-2"></i> Marca
-            </a>
-        </li>
-        <li class="nav-item mb-1">
-            <a class="nav-link text-white-50 {% if request.endpoint and 'backup' in request.endpoint %}active{% endif %}"
-               href="{{ url_for('backup.index') }}">
-                <i class="fas fa-archive me-2"></i> Copias
-            </a>
-        </li>
-        {% endif %}
-
-        {% if puede('certificados.gestionar') %}
-        <li class="nav-item mb-1">
-            <a class="nav-link text-white-50 {% if request.endpoint and 'certificados' in request.endpoint %}active{% endif %}"
-               href="{{ url_for('certificados.index') }}">
-                <i class="fas fa-certificate me-2"></i> Certificados
-            </a>
-        </li>
-        {% endif %}
-
-        {% if puede('auditoria.ver') %}
-        <li class="nav-item mb-1">
-            <a class="nav-link text-white-50 {% if request.endpoint and 'auditoria' in request.endpoint %}active{% endif %}"
-               href="{{ url_for('auditoria.index') }}">
-                <i class="fas fa-history me-2"></i> Auditoría
-            </a>
-        </li>
-        {% endif %}
-
-        {% if puede('inspecciones.ver') %}
-        <li class="nav-item mb-1">
-            <a class="nav-link text-white-50 {% if request.endpoint and 'inspecciones' in request.endpoint %}active{% endif %}"
-               href="{{ url_for('inspecciones.index') }}">
-                <i class="fas fa-clipboard-check me-2"></i> Inspecciones
-            </a>
-        </li>
-        {% endif %}
-
-        {% if puede('sincronizacion.usar') %}
-        <li class="nav-item mb-1">
-            <a class="nav-link text-white-50 {% if request.endpoint and 'sincronizacion' in request.endpoint %}active{% endif %}"
-               href="{{ url_for('sincronizacion.index') }}">
-                <i class="fas fa-cloud-arrow-up me-2"></i> Sincronización
-            </a>
-        </li>
-        {% endif %}
-    </ul>
+    {% endfor %}
+    </nav>
 
     <div class="sidebar-footer">
         <small>

@@ -14,9 +14,9 @@
     ('total', total_folios, 'Total Folios', 'fa-file-alt', 'text-primary'),
     ('digitado', digitados, 'Digitados', 'fa-check-circle', 'text-success'),
     ('escaneado', escaneados, 'Escaneados', 'fa-qrcode', 'text-info'),
-    ('nulo', nulos, 'Nulos', 'fa-ban', 'text-warning'),
+    ('nulo', nulos, 'Nulos', 'fa-ban', 'text-danger'),
     ('disponible', disponibles, 'Disponibles', 'fa-inbox', 'text-secondary'),
-    ('entregado', entregados, 'Entregados', 'fa-paper-plane', 'text-danger'),
+    ('entregado', entregados, 'Entregados', 'fa-paper-plane', 'text-info'),
     ('devuelto', devueltos, 'Devueltos', 'fa-undo', 'text-success'),
 ] %}
 
@@ -179,9 +179,9 @@
         total:      { titulo: 'Total Folios por Tipo',        icono: 'fa-file-alt',     header: 'bg-primary text-white',  spinner: 'text-primary',  blanco: true,  vacio: 'No hay folios' },
         digitado:   { titulo: 'Folios Digitados por Tipo',    icono: 'fa-check-circle', header: 'bg-success text-white',  spinner: 'text-success',  blanco: true,  vacio: 'No hay folios digitados' },
         escaneado:  { titulo: 'Folios Escaneados por Tipo',   icono: 'fa-qrcode',       header: 'bg-info text-dark',      spinner: 'text-info',     blanco: false, vacio: 'No hay folios escaneados' },
-        nulo:       { titulo: 'Folios Nulos por Tipo',        icono: 'fa-ban',          header: 'bg-warning text-dark',   spinner: 'text-warning',  blanco: false, vacio: 'No hay folios nulos' },
+        nulo:       { titulo: 'Folios Nulos por Tipo',        icono: 'fa-ban',          header: 'bg-danger text-white',   spinner: 'text-danger',   blanco: true, vacio: 'No hay folios nulos' },
         disponible: { titulo: 'Folios Disponibles por Tipo',  icono: 'fa-inbox',        header: 'bg-secondary text-white', spinner: 'text-secondary', blanco: true, vacio: 'No hay folios disponibles' },
-        entregado:  { titulo: 'Folios Entregados por Tipo',   icono: 'fa-paper-plane',  header: 'bg-danger text-white',   spinner: 'text-danger',   blanco: true, vacio: 'No hay folios entregados' },
+        entregado:  { titulo: 'Folios Entregados por Tipo',   icono: 'fa-paper-plane',  header: 'bg-info text-dark',      spinner: 'text-info',     blanco: false, vacio: 'No hay folios entregados' },
         devuelto:   { titulo: 'Folios Devueltos por Tipo',    icono: 'fa-undo',         header: 'bg-success text-white',  spinner: 'text-success',  blanco: true, vacio: 'No hay folios devueltos' }
     };
 

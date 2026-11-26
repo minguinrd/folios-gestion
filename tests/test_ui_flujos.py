@@ -6,6 +6,9 @@ Escribir tests primero: deben fallar antes de tocar templates/JS.
 from datetime import datetime
 from pathlib import Path
 
+from app.extensions import db
+from tests.conftest import make_folio
+
 TEMPLATES = Path(__file__).resolve().parent.parent / 'app' / 'templates'
 STATIC = Path(__file__).resolve().parent.parent / 'app' / 'static'
 
@@ -18,25 +21,30 @@ def _login_html(client):
 
 # --- Año del filtro de folios derivado del reloj, no de un range hardcodeado ---
 
-def test_opciones_anio_siguen_al_reloj(auth_client, monkeypatch):
-    import app as app_pkg
+def test_opciones_anio_siguen_al_reloj(auth_client, monkeypatch, tipo):
+    """Año en curso siempre presente (aunque aún no tenga folios); sin años
+    futuros vacíos; los años con folios, aunque sean viejos."""
+    from datetime import date as date_real
+    import app.services.queries as queries
 
-    class FakeDateTime:
+    class FakeDate:
         @staticmethod
-        def now():
-            return datetime(2040, 6, 1)
+        def today():
+            return date_real(2040, 6, 1)
 
-    monkeypatch.setattr(app_pkg, 'datetime', FakeDateTime)
+    monkeypatch.setattr(queries, 'date', FakeDate)
+    make_folio(tipo, anio=2031, numero=1)
+    db.session.commit()
     html = auth_client.get('/folios/').get_data(as_text=True)
     assert 'value="2040"' in html, 'el año actual no aparece en el filtro'
-    assert 'value="2044"' in html, 'horizonte +4 ausente'
-    assert 'value="2039"' in html, 'año anterior debe seguir disponible'
+    assert 'value="2031"' in html, 'año con folios ausente'
+    assert 'value="2044"' not in html, 'no debe ofrecer años futuros vacíos'
 
 
-def test_template_folios_usa_anio_actual():
+def test_template_folios_usa_anios_con_datos():
     src = (TEMPLATES / 'folios' / 'index.html').read_text(encoding='utf-8')
-    assert 'range(anio_actual' in src, \
-        'folios/index.html sigue con range(2025, 2031) hardcodeado'
+    assert 'for y in anios' in src, 'el filtro de año debe venir de los datos'
+    assert 'range(2025' not in src and 'range(anio_actual' not in src
 
 
 # --- Login: autocomplete + mostrar contraseña ---

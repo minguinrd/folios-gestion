@@ -31,3 +31,27 @@
 </nav>
 {% endif %}
 {% endmacro %}
+
+{#- "Mostrando 1–25 de 5.250" sobre la tabla (o "Sin resultados"). -#}
+{% macro render_conteo(pagination) %}
+<p class="text-muted small mb-2" id="conteo-resultados" aria-live="polite">
+    {% if pagination.total %}
+        Mostrando {{ pagination.first }}–{{ pagination.last }} de {{ pagination.total|miles }}
+    {% else %}
+        Sin resultados
+    {% endif %}
+</p>
+{% endmacro %}
+
+{#- Botón "Limpiar": solo si algún filtro de la URL tiene valor (page/per_page no cuentan). -#}
+{% macro boton_limpiar(url) %}
+{% set ns = namespace(activo=false) %}
+{% for clave, valor in request.args.items() if clave not in ('page', 'per_page') and valor %}
+    {% set ns.activo = true %}
+{% endfor %}
+{% if ns.activo %}
+<a href="{{ url }}" class="btn btn-outline-secondary btn-sm" id="limpiar-filtros">
+    <i class="fas fa-times me-1" aria-hidden="true"></i>Limpiar
+</a>
+{% endif %}
+{% endmacro %}

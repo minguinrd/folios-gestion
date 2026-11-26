@@ -1,12 +1,13 @@
 {% extends 'base.html' %}
-{% from 'components/pagination.html' import render_pagination %}
+{% from 'components/pagination.html' import render_pagination, render_conteo, boton_limpiar %}
+{% from 'components/estados.html' import estado_badge, marca_si_no, nulo_badge %}
 
 {% block title %}Folios{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="fw-bold mb-0">
-        <i class="fas fa-file-alt me-2 text-primary"></i>{{ marca.nombre }}
+        <i class="fas fa-file-alt me-2 text-primary"></i>Folios
     </h4>
     <div class="d-flex gap-2 flex-wrap">
         {% if puede('folios.importar') %}
@@ -40,7 +41,7 @@
                 <label class="form-label small fw-semibold" for="anioCert">Año</label>
                 <select id="anioCert" name="anioCert" class="form-select form-select-sm">
                     <option value="">Todos</option>
-                    {% for y in range(anio_actual - 1, anio_actual + 5) %}
+                    {% for y in anios %}
                         <option value="{{ y }}" {% if current_anio == y %}selected{% endif %}>{{ y }}</option>
                     {% endfor %}
                 </select>
@@ -72,14 +73,18 @@
                 <input type="text" id="busqueda" name="busqueda" class="form-control form-control-sm" placeholder="Número de folio..." value="{{ current_busqueda or '' }}" inputmode="numeric" autocomplete="off">
             </div>
             <div class="col-md-2">
-                <button type="submit" class="btn btn-primary btn-sm w-100">
-                    <i class="fas fa-search me-1"></i>Filtrar
-                </button>
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm flex-fill">
+                        <i class="fas fa-search me-1"></i>Filtrar
+                    </button>
+                    {{ boton_limpiar(url_for('folios.index')) }}
+                </div>
             </div>
         </form>
     </div>
 </div>
 
+{{ render_conteo(pagination) }}
 <div class="card border-0 shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -105,37 +110,11 @@
                         <td><span class="badge" style="background-color: {{ f.tipo_cert.color or '#0D6EFD' }}">{{ f.tipo_cert.name }}</span></td>
                         <td>{{ f.anioCert }}</td>
                         <td>
-                            {% if f.estado == 'disponible' %}
-                                <span class="badge bg-secondary">Disponible</span>
-                            {% elif f.estado == 'entregado' %}
-                                <span class="badge bg-danger">Entregado</span>
-                            {% elif f.estado == 'devuelto' %}
-                                <span class="badge bg-success">Devuelto</span>
-                            {% elif f.estado == 'perdido' %}
-                                <span class="badge bg-warning text-dark">Perdido</span>
-                            {% endif %}
+                            {{ estado_badge(f.estado) }}
                         </td>
-                        <td>
-                            {% if f.digitado %}
-                                <i class="fas fa-check-circle text-success" aria-hidden="true"></i><span class="visually-hidden">Sí</span>
-                            {% else %}
-                                <i class="fas fa-times-circle text-muted" aria-hidden="true"></i><span class="visually-hidden">No</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if f.escaneado %}
-                                <i class="fas fa-check-circle text-success" aria-hidden="true"></i><span class="visually-hidden">Sí</span>
-                            {% else %}
-                                <i class="fas fa-times-circle text-muted" aria-hidden="true"></i><span class="visually-hidden">No</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if f.nulo %}
-                                <i class="fas fa-check-circle text-success" aria-hidden="true"></i><span class="visually-hidden">Sí</span>
-                            {% else %}
-                                <i class="fas fa-times-circle text-muted" aria-hidden="true"></i><span class="visually-hidden">No</span>
-                            {% endif %}
-                        </td>
+                        <td>{{ marca_si_no(f.digitado) }}</td>
+                        <td>{{ marca_si_no(f.escaneado) }}</td>
+                        <td>{{ nulo_badge(f.nulo) }}</td>
                         {% if puede('folios.actualizar') %}
                         <td class="text-center">
                             <a href="{{ url_for('folios.details', id=f.id) }}" class="btn btn-sm btn-outline-primary" title="Ver detalles" aria-label="Ver detalles del folio {{ f.folio }}">

@@ -43,6 +43,7 @@
                                 {{ form.folio_ids.label.text }}
                                 <span class="badge bg-info text-dark ms-2" id="selected-count" aria-live="polite">0 seleccionados</span>
                             </label>
+                            {% with con_sugerido=false %}{% include 'components/seleccion_rango.html' %}{% endwith %}
                             <div class="row g-3">
                                 <div class="col-md-8">
                                     {{ form.folio_ids(class="form-select", size="10", id="folio-select") }}
@@ -109,6 +110,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/seleccion_rango.js') }}"></script>
 <script>
     const centroSelect = document.getElementById('centro-select');
     const tipoSelect = document.getElementById('tipo-select');
