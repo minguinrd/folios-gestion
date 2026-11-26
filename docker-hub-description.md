@@ -4,6 +4,10 @@ Sistema de seguimiento de folios de certificados para una Dirección Provincial
 de Salud: recepción de rangos, entrega/devolución a centros de salud, escaneos
 y reportes. Interfaz en español, Flask + MariaDB.
 
+> **Desde 1.10.0 la imagen se publica aquí (`m809/folios-gestion`).** Hasta
+> 1.9.0 estaba en `soportedpss1/folios-gestion`, que ya no recibe versiones.
+> Para actualizar un servidor existente vea *Actualizar desde 1.9.x* abajo.
+
 - **App:** Flask 3 + SQLAlchemy + Flask-Login + Flask-WTF + Flask-Limiter
 - **UI:** Jinja2 + Bootstrap 5 + jQuery + SweetAlert2 (mensajes como toasts
   flotantes, confirmaciones con tema de la app, responsive)
@@ -68,6 +72,8 @@ services:
 | `TZ` | no | default `America/Santo_Domingo`; timestamps en UTC, UI en local |
 | `RATELIMIT_DEFAULT` | no | default `300 per hour` (`/health` exento) |
 | `GOOGLE_SHEET_ID` / `GOOGLE_SERVICE_ACCOUNT_JSON` | no | sincronización con Google Sheets |
+| `REPORTE_PDF_MAX_FILAS` | no | default `5000`; tope de filas del PDF de Reportes (el Excel no tiene tope) |
+| `SUGERIDO_VENTANA_MESES` / `SUGERIDO_MESES_COBERTURA` | no | default `6` / `3`; cálculo de la cantidad sugerida por centro |
 
 ## Notas de operación
 
@@ -75,7 +81,9 @@ services:
   `SESSION_COOKIE_SECURE=true` + `TRUST_PROXY=true`.
 - **Carpeta `scans/`:** debe pertenecer a UID `1000` (`chown 1000:1000 scans`)
   — el contenedor corre como `appuser`; si Docker la crea como root, las
-  subidas de escaneos fallan.
+  subidas de escaneos fallan. Estructura: `scans/<año>/<id del tipo>/<número>.jpg`.
+- **Healthchecks:** `app` responde `GET /health`; `sync-worker` se marca
+  unhealthy si su scheduler deja de latir (>10 min).
 - **Permisos:** roles `admin` / `operador` / `lectura` más permisos
   granulares por usuario (Usuarios → Permisos). Recepción y escaneos son de
   admin por defecto; un admin puede concederlos.
@@ -87,6 +95,27 @@ services:
   already exists".
 - **Rotar credenciales MariaDB:** cambiar `.env` no cambia la contraseña ya
   inicializada en el volumen — ver README (Rotar credenciales de MariaDB).
+
+## Actualizar desde 1.9.x
+
+```bash
+cd /opt/folios
+docker compose -f docker-compose.deploy.yml exec db sh -c \
+  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mariadb-dump -uroot "$MYSQL_DATABASE"' > respaldo_pre_1.10.sql
+# compose nuevo (apunta a m809/folios-gestion) y revisar FOLIOS_IMAGE en .env
+curl -fsSLO https://raw.githubusercontent.com/minguinrd/folios-gestion/main/docker-compose.deploy.yml
+docker compose -f docker-compose.deploy.yml pull && docker compose -f docker-compose.deploy.yml up -d
+docker compose -f docker-compose.deploy.yml exec -e FLASK_APP=run.py app flask db upgrade
+# escaneos al formato por tipo: primero simula, luego mueve
+docker compose -f docker-compose.deploy.yml exec app python migrar_escaneos.py
+docker compose -f docker-compose.deploy.yml exec app python migrar_escaneos.py --aplicar
+```
+
+Novedades de 1.10.0: cantidad sugerida de certificados por tipo en cada
+centro (y como ayuda al entregar), escaneos separados por tipo de
+certificado, importación de digitado/nulos con columnas `anio`/`tipo` (las
+filas ambiguas ya no marcan todos los años y tipos) y export Excel completo
+en reportes grandes. Detalle en `docs/despliegue.md` §9.
 
 ## Tags
 
