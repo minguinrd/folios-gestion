@@ -305,6 +305,17 @@ docker compose -f docker-compose.deploy.yml exec -e FLASK_APP=run.py app flask d
 Antes de actualizar en producción: dump SQL (§7). Las migraciones son
 adhierentes: una base nueva y una actualizada quedan en el mismo esquema.
 
+**De 1.10.x a 1.11.0** (además de lo anterior):
+
+- `flask db upgrade` aplica `0011` (institución y departamento en Marca;
+  vacíos = textos actuales, nada cambia hasta editarlos).
+- La interfaz ya no carga nada de internet (librerías y fuentes van en la
+  imagen) y envía una **Content-Security-Policy**. Si una página dejara de
+  funcionar por la política, ponga `CSP_REPORT_ONLY=true` en `.env` y
+  `up -d`: el navegador solo informará en la consola (F12) sin bloquear.
+- Corrige los diálogos de confirmación (SweetAlert2), que podían no
+  aparecer en 1.10.0.
+
 **De 1.9.x a 1.10.0** (además de lo anterior):
 
 - **La imagen cambió de cuenta en Docker Hub:** desde 1.10.0 se publica en

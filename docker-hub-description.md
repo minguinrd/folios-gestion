@@ -53,7 +53,7 @@ El compose de despliegue usa la imagen publicada:
 ```yaml
 services:
   app:
-    image: m809/folios-gestion:1.10.0
+    image: m809/folios-gestion:1.11.0
     ports:
       - "8089:8089"
     env_file: .env
@@ -96,7 +96,37 @@ services:
 - **Rotar credenciales MariaDB:** cambiar `.env` no cambia la contraseña ya
   inicializada en el volumen — ver README (Rotar credenciales de MariaDB).
 
+## Actualizar desde 1.10.x
+
+```bash
+cd /opt/folios
+# respaldo, compose nuevo (tag 1.11.0) y migración 0011
+docker compose -f docker-compose.deploy.yml exec db sh -c \
+  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mariadb-dump -uroot "$MYSQL_DATABASE"' > respaldo_pre_1.11.sql
+curl -fsSLO https://raw.githubusercontent.com/minguinrd/folios-gestion/main/docker-compose.deploy.yml
+docker compose -f docker-compose.deploy.yml pull && docker compose -f docker-compose.deploy.yml up -d
+docker compose -f docker-compose.deploy.yml exec -e FLASK_APP=run.py app flask db upgrade
+```
+
+Novedades de 1.11.0:
+
+- **Corrige los diálogos de confirmación** (SweetAlert2): en 1.10.0 y
+  anteriores el navegador podía bloquear el script por un cambio en el CDN.
+- **Sin dependencia de internet:** Bootstrap, íconos, calendarios, tablas,
+  gráficos y fuentes se sirven desde la propia imagen.
+- **Content-Security-Policy** con nonce por petición. Si alguna página
+  fallara por la política, `CSP_REPORT_ONLY=true` en `.env` la deja solo
+  informando, sin redesplegar.
+- Institución y departamento configurables en **Marca** (barra superior,
+  acceso y PDF).
+- Interfaz: menú lateral por secciones, migas de pan, conteo de resultados y
+  "Limpiar" en los listados, selección de folios por rango y "Usar
+  sugerido" al entregar, menú "Validar" en Folios, colores de estado
+  coherentes (Entregado azul, Nulo rojo).
+
 ## Actualizar desde 1.9.x
+
+Pasar primero por los pasos de 1.10 (abajo) y luego los de 1.11 (arriba).
 
 ```bash
 cd /opt/folios
@@ -119,7 +149,7 @@ en reportes grandes. Detalle en `docs/despliegue.md` §9.
 
 ## Tags
 
-- `m809/folios-gestion:1.10.0` — versión fija, recomendada en
+- `m809/folios-gestion:1.11.0` — versión fija, recomendada en
   producción
 - `m809/folios-gestion:latest` — última build, para pruebas
 
