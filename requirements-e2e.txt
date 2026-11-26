@@ -1,0 +1,3 @@
+# Recorrido en navegador (tests/e2e). Tras instalar: playwright install chromium
+-r requirements-dev.txt
+playwright==1.65.2

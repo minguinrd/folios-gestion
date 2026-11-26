@@ -116,7 +116,19 @@ FLASK_CONFIG=development python3 run.py
 # Tests
 pip install -r requirements-dev.txt
 python3 -m pytest
+
+# Recorrido en navegador (Chromium headless; opcional, no corre con la suite normal)
+pip install -r requirements-e2e.txt && playwright install chromium
+python3 -m pytest -m e2e
 ```
+
+El recorrido (`tests/e2e/`) levanta la app sobre una SQLite sembrada en un
+directorio temporal y un puerto libre (no toca la base de `.env`), y recorre
+login, dashboard, folios, centros, entregas, devoluciones, marca, tema y móvil.
+Cada prueba falla si el navegador registra errores de consola, violaciones de
+CSP, peticiones fallidas o peticiones a otros orígenes. Ante un fallo deja una
+captura en `.pytest_cache/e2e/`. Conviene correrlo antes de cada release que
+toque plantillas, JS o librerías de `static/vendor/`.
 
 ## Restablecer contraseña olvidada
 
