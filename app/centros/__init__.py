@@ -86,32 +86,27 @@ def _datos_del_centro(centro_id):
     return entregas, pendientes, devueltos
 
 
-def _ultimos_movimientos():
-    """{centro_id: (fecha última entrega | None, fecha última devolución | None)}.
-
-    Dos GROUP BY (no una consulta por centro). Una devolución en blanco borra
-    la entrega y no deja DevolucionFolio: no cuenta en ninguna de las dos.
-    """
-    entregas = dict(db.session.query(
-        EntregaFolio.centroId, func.max(EntregaFolio.fechaEntrega))
+def _ultimos_por_centro():
+    """(ultima_entrega, ultima_devolucion): {centroId: date} con el MAX de cada tabla."""
+    entregas = dict(
+        db.session.query(EntregaFolio.centroId,
+                         func.max(EntregaFolio.fechaEntrega))
         .group_by(EntregaFolio.centroId).all())
-    devoluciones = dict(db.session.query(
-        DevolucionFolio.centroId, func.max(DevolucionFolio.fechaDevolucion))
+    devoluciones = dict(
+        db.session.query(DevolucionFolio.centroId,
+                         func.max(DevolucionFolio.fechaDevolucion))
         .group_by(DevolucionFolio.centroId).all())
-    return {cid: (entregas.get(cid), devoluciones.get(cid))
-            for cid in set(entregas) | set(devoluciones)}
-
-
-def _fecha_txt(fecha, vacio='-'):
-    return fecha.strftime('%d/%m/%Y') if fecha else vacio
+    return entregas, devoluciones
 
 
 @centros_bp.route('/')
 @login_required
 def index():
     centros = Centro.query.order_by(Centro.name).all()
+    ultima_entrega, ultima_devolucion = _ultimos_por_centro()
     return render_template('centros/index.html', centros=centros,
-                           ultimos=_ultimos_movimientos())
+                           ultima_entrega=ultima_entrega,
+                           ultima_devolucion=ultima_devolucion)
 
 
 @centros_bp.route('/<int:id>/detail')
@@ -430,14 +425,14 @@ def export_lista_excel():
     from openpyxl.styles import Font, Alignment, PatternFill
 
     centros = Centro.query.order_by(Centro.name).all()
-    ultimos = _ultimos_movimientos()
+    ultima_entrega, ultima_devolucion = _ultimos_por_centro()
 
     wb = Workbook()
     ws = wb.active
     ws.title = 'Centros'
 
-    headers = ['#', 'Nombre', 'Teléfono', 'Dirección', 'Estado',
-               'Última entrega', 'Última devolución']
+    headers = ['#', 'Nombre', 'Teléfono', 'Dirección', 'Última entrega',
+               'Última devolución', 'Estado']
     header_font = Font(bold=True, color='FFFFFF')
     header_fill = PatternFill(start_color='0D6EFD', end_color='0D6EFD', fill_type='solid')
     header_align = Alignment(horizontal='center')
@@ -448,14 +443,15 @@ def export_lista_excel():
         cell.alignment = header_align
 
     for row, c in enumerate(centros, 2):
+        e = ultima_entrega.get(c.id)
+        d = ultima_devolucion.get(c.id)
         ws.cell(row=row, column=1, value=c.id)
         ws.cell(row=row, column=2, value=c.name)
         ws.cell(row=row, column=3, value=c.telefono or '')
         ws.cell(row=row, column=4, value=c.direccion or '')
-        ws.cell(row=row, column=5, value='Activo' if c.activo else 'Inactivo')
-        entrega, devolucion = ultimos.get(c.id, (None, None))
-        ws.cell(row=row, column=6, value=_fecha_txt(entrega))
-        ws.cell(row=row, column=7, value=_fecha_txt(devolucion))
+        ws.cell(row=row, column=5, value=e.strftime('%d/%m/%Y') if e else '')
+        ws.cell(row=row, column=6, value=d.strftime('%d/%m/%Y') if d else '')
+        ws.cell(row=row, column=7, value='Activo' if c.activo else 'Inactivo')
 
     for col in ws.columns:
         max_length = max(len(str(cell.value or '')) for cell in col)
@@ -478,7 +474,7 @@ def export_lista_pdf():
     from weasyprint import HTML
 
     centros = Centro.query.order_by(Centro.name).all()
-    ultimos = _ultimos_movimientos()
+    ultima_entrega, ultima_devolucion = _ultimos_por_centro()
 
     encabezado = encabezado_pdf('Gestión de Centros de Salud')
     html_content = f"""
@@ -509,9 +505,9 @@ def export_lista_pdf():
                     <th>Nombre</th>
                     <th>Teléfono</th>
                     <th>Dirección</th>
-                    <th>Estado</th>
                     <th>Última entrega</th>
                     <th>Última devolución</th>
+                    <th>Estado</th>
                 </tr>
             </thead>
             <tbody>
@@ -519,16 +515,17 @@ def export_lista_pdf():
 
     filas = []
     for c in centros:
-        entrega, devolucion = ultimos.get(c.id, (None, None))
+        e = ultima_entrega.get(c.id)
+        d = ultima_devolucion.get(c.id)
         filas.append(f"""
                 <tr>
                     <td>{c.id}</td>
                     <td>{escape(c.name)}</td>
                     <td>{escape(c.telefono or '-')}</td>
                     <td>{escape(c.direccion or '-')}</td>
+                    <td>{e.strftime('%d/%m/%Y') if e else '-'}</td>
+                    <td>{d.strftime('%d/%m/%Y') if d else '-'}</td>
                     <td>{'Activo' if c.activo else 'Inactivo'}</td>
-                    <td>{_fecha_txt(entrega)}</td>
-                    <td>{_fecha_txt(devolucion)}</td>
                 </tr>
         """)
 

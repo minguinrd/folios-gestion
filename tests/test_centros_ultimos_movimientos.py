@@ -1,8 +1,9 @@
-"""Listado de centros: fecha de la última entrega y la última devolución."""
+"""Listado de centros: última entrega y última devolución por centro."""
 
 from datetime import date
 from io import BytesIO
 
+import pytest
 from openpyxl import load_workbook
 
 from app.extensions import db
@@ -11,75 +12,100 @@ from app.models.devolucion_folio import DevolucionFolio
 from app.models.entrega_folio import EntregaFolio
 from tests.conftest import make_folio
 
-Y = 2026
 
-
-def _seed(tipo, centro, operador):
-    """Dos entregas (1/6 y 15/6) y una devolución (10/6) al centro; otro centro sin movimientos."""
-    f1 = make_folio(tipo, anio=Y, numero=9001, estado='devuelto')
-    f2 = make_folio(tipo, anio=Y, numero=9002, estado='entregado')
-    db.session.add_all([
-        EntregaFolio(folio_id=f1.id, fechaEntrega=date(Y, 6, 1),
-                     centroId=centro.id, userId=operador.id),
-        EntregaFolio(folio_id=f2.id, fechaEntrega=date(Y, 6, 15),
-                     centroId=centro.id, userId=operador.id),
-        DevolucionFolio(folio_id=f1.id, fechaDevolucion=date(Y, 6, 10),
-                        centroId=centro.id, userId=operador.id),
-    ])
-    vacio = Centro(name='Centro Sin Movimientos', activo=True)
-    db.session.add(vacio)
+def _seed(centro, tipo, operador):
+    """Dos entregas (muestra la más reciente) y una devolución en `centro`."""
+    f1 = make_folio(tipo, anio=2026, numero=8001, estado='entregado')
+    f2 = make_folio(tipo, anio=2026, numero=8002, estado='devuelto')
+    db.session.add(EntregaFolio(folio_id=f1.id, fechaEntrega=date(2026, 3, 10),
+                                centroId=centro.id, userId=operador.id))
+    db.session.add(EntregaFolio(folio_id=f2.id, fechaEntrega=date(2026, 5, 2),
+                                centroId=centro.id, userId=operador.id))
+    db.session.add(DevolucionFolio(folio_id=f2.id,
+                                   fechaDevolucion=date(2026, 6, 15),
+                                   centroId=centro.id, userId=operador.id))
     db.session.commit()
-    return vacio
 
 
-def test_listado_muestra_ultima_entrega_y_devolucion(auth_client, tipo, centro, operador):
-    _seed(tipo, centro, operador)
-    text = auth_client.get('/centros/').get_data(as_text=True)
-    assert 'Última entrega' in text and 'Última devolución' in text
-    # La más reciente de cada tipo, no la primera.
-    assert 'data-order="2026-06-15"' in text and '15/06/2026' in text
-    assert 'data-order="2026-06-10"' in text and '10/06/2026' in text
-    assert '01/06/2026' not in text
+def test_index_muestra_ultima_entrega_y_devolucion(auth_client, app, tipo,
+                                                   centro, operador):
+    _seed(centro, tipo, operador)
+    otro = Centro(name='Centro Sin Movimientos', telefono='1',
+                  direccion='d', activo=True)
+    db.session.add(otro)
+    db.session.commit()
+
+    resp = auth_client.get('/centros/')
+    assert resp.status_code == 200
+    body = resp.get_data(as_text=True)
+    assert '<th>Última entrega</th>' in body, 'columna Última entrega ausente'
+    assert '<th>Última devolución</th>' in body, 'columna Última devolución ausente'
+    assert '02/05/2026' in body, 'debe mostrar la entrega MÁS RECIENTE (no 10/03/2026)'
+    assert '10/03/2026' not in body, 'no debe mostrar una entrega antigua como última'
+    assert '15/06/2026' in body, 'fecha de última devolución ausente'
+    assert 'Centro Sin Movimientos' in body, 'el centro sin datos debe seguir listado'
 
 
-def test_centro_sin_movimientos_muestra_sin_registro(auth_client, tipo, centro, operador):
-    _seed(tipo, centro, operador)
-    text = auth_client.get('/centros/').get_data(as_text=True)
-    fila = text.split('Centro Sin Movimientos', 1)[1].split('</tr>', 1)[0]
-    assert fila.count('Sin registro') == 2
-
-
-def test_listado_vacio_colspan_cubre_las_columnas(auth_client):
-    text = auth_client.get('/centros/').get_data(as_text=True)
-    assert 'colspan="7"' in text
-
-
-def test_export_excel_lista_incluye_fechas(auth_client, tipo, centro, operador):
-    _seed(tipo, centro, operador)
+def test_excel_lista_muestra_ultimas_fechas(auth_client, app, tipo, centro,
+                                            operador):
+    _seed(centro, tipo, operador)
     resp = auth_client.get('/centros/export/excel')
-    filas = list(load_workbook(BytesIO(resp.data)).active.iter_rows(values_only=True))
-    assert filas[0][5:] == ('Última entrega', 'Última devolución')
-    por_nombre = {f[1]: f for f in filas[1:]}
-    assert por_nombre[centro.name][5:] == ('15/06/2026', '10/06/2026')
-    assert por_nombre['Centro Sin Movimientos'][5:] == ('-', '-')
+    assert resp.status_code == 200
+    wb = load_workbook(BytesIO(resp.data))
+    filas = list(wb.active.iter_rows(values_only=True))
+    assert filas[0] == ('#', 'Nombre', 'Teléfono', 'Dirección',
+                        'Última entrega', 'Última devolución', 'Estado')
+    fila = next(r for r in filas[1:] if r[1] == centro.name)
+    assert fila[4] == '02/05/2026', 'última entrega en dd/mm/aaaa'
+    assert fila[5] == '15/06/2026', 'última devolución en dd/mm/aaaa'
 
 
-def test_export_pdf_lista_incluye_fechas(auth_client, tipo, centro, operador, monkeypatch):
-    """Revisa el HTML que se pasa a WeasyPrint (sin depender de pango/cairo)."""
-    import weasyprint
-    capturado = {}
+def test_excel_centro_sin_movimientos_muestra_vacio(auth_client, app, centro):
+    resp = auth_client.get('/centros/export/excel')
+    assert resp.status_code == 200
+    wb = load_workbook(BytesIO(resp.data))
+    filas = list(wb.active.iter_rows(values_only=True))
+    fila = next(r for r in filas[1:] if r[1] == centro.name)
+    # openpyxl serializa '' como celda vacía: al leerla vuelve None
+    assert not fila[4] and not fila[5], \
+        'centro sin movimientos: celdas vacías, no None ni crash'
 
-    class HTMLFalso:
-        def __init__(self, string):
-            capturado['html'] = string
+
+def test_pdf_lista_muestra_ultimas_fechas(auth_client, app, tipo, centro,
+                                          operador, monkeypatch):
+    try:
+        import weasyprint
+    except OSError as exc:
+        pytest.skip(f'weasyprint sin libpango (solo Docker): {exc}')
+
+    class _FakeHTML:
+        captured = []
+
+        def __init__(self, string=None, **kwargs):
+            _FakeHTML.captured.append(string)
 
         def write_pdf(self):
-            return b'%PDF-falso'
+            return b'%PDF-1.4 fake'
 
-    monkeypatch.setattr(weasyprint, 'HTML', HTMLFalso)
-    _seed(tipo, centro, operador)
+    _seed(centro, tipo, operador)
+    _FakeHTML.captured = []
+    monkeypatch.setattr(weasyprint, 'HTML', _FakeHTML)
+
     resp = auth_client.get('/centros/export/pdf')
     assert resp.status_code == 200
-    html = capturado['html']
-    assert 'Última entrega' in html and 'Última devolución' in html
-    assert '15/06/2026' in html and '10/06/2026' in html
+    assert len(_FakeHTML.captured) == 1
+    html = _FakeHTML.captured[0]
+    assert '<th>Última entrega</th>' in html
+    assert '<th>Última devolución</th>' in html
+    assert '02/05/2026' in html, 'última entrega ausente en el PDF'
+    assert '15/06/2026' in html, 'última devolución ausente en el PDF'
+
+
+def test_index_fechas_ordenables_por_fecha_real(auth_client, app, tipo, centro,
+                                               operador):
+    """DataTables ordena por data-order ISO: como texto, 15/06 quedaría antes que 02/05."""
+    _seed(centro, tipo, operador)
+    body = auth_client.get('/centros/').get_data(as_text=True)
+    assert '<td data-order="2026-05-02">02/05/2026</td>' in body
+    assert '<td data-order="2026-06-15">15/06/2026</td>' in body
+    assert body.count('<th>Última entrega</th>') == 1, 'columna duplicada'

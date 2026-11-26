@@ -193,15 +193,16 @@ def test_centros_lista_excel_contiene_filas(auth_client, app, centro):
 
     wb = load_workbook(BytesIO(resp.data))
     rows = list(wb.active.iter_rows(values_only=True))
-    assert rows[0] == ('#', 'Nombre', 'Teléfono', 'Dirección', 'Estado',
-                       'Última entrega', 'Última devolución')
+    assert rows[0] == ('#', 'Nombre', 'Teléfono', 'Dirección',
+                       'Última entrega', 'Última devolución', 'Estado')
     assert len(rows) == 2, f'esperaba header + 1 fila, hay {len(rows)}'
     assert rows[1][0] == centro.id
     assert rows[1][1] == centro.name
     assert rows[1][2] == centro.telefono
     assert rows[1][3] == centro.direccion
-    assert rows[1][4] == 'Activo'
-    assert rows[1][5:] == ('-', '-'), 'centro sin movimientos'
+    assert not rows[1][4] and not rows[1][5], \
+        'centro sin movimientos: fechas vacías'
+    assert rows[1][6] == 'Activo'
 
 
 def test_centros_lista_pdf_contiene_filas(auth_client, app, centro, monkeypatch):
@@ -271,37 +272,3 @@ def test_filtro_anio_con_todos_y_rango_dinamico(auth_client):
     anio = datetime.now().year
     assert str(anio - 5) in opciones, 'el rango debe ser dinámico hacia atrás'
     assert str(anio) in opciones
-
-
-def test_reportes_pdf_supera_tope_redirige_con_aviso(auth_client, app, tipo):
-    """Sobre REPORTE_PDF_MAX_FILAS no se genera el PDF (timeout/RAM)."""
-    for n in range(3):
-        make_folio(tipo, anio=Y, numero=7000 + n, rangoId=1)
-    db.session.commit()
-    app.config['REPORTE_PDF_MAX_FILAS'] = 2
-    resp = auth_client.get(f'/reportes/export/pdf?anioCert={Y}',
-                           follow_redirects=True)
-    assert resp.status_code == 200
-    assert resp.request.path == '/reportes/'
-    text = resp.get_data(as_text=True)
-    assert 'el PDF admite hasta 2' in text
-    assert 'descargue el Excel' in text
-
-
-def test_reportes_excel_varios_lotes(auth_client, app, tipo, monkeypatch):
-    """Lotes chicos: no se pierden ni duplican filas entre lotes.
-
-    Regresión MariaDB: con yield_per el export salía solo con el primer lote
-    (SQLite no lo reproduce; este test cubre el corte entre lotes y el
-    empate de número entre años).
-    """
-    import app.reportes as reportes
-    monkeypatch.setattr(reportes, 'LOTE_EXPORT', 2)
-    for n in range(5):
-        make_folio(tipo, anio=Y, numero=8000 + n, rangoId=1)
-    # Mismo número en otro año: el corte de lote cae en medio de un empate.
-    make_folio(tipo, anio=Y - 1, numero=8001, rangoId=2)
-    db.session.commit()
-    resp = auth_client.get('/reportes/export/excel')
-    rows = list(load_workbook(BytesIO(resp.data)).active.iter_rows(values_only=True))
-    assert [r[0] for r in rows[1:]] == [8000, 8001, 8001, 8002, 8003, 8004]

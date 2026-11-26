@@ -71,6 +71,7 @@ def test_recepcion_indice_vacio_sin_celdas_extra(admin_client):
 
 def test_centros_indice_vacio_sin_celdas_extra(admin_client):
     body = _fila_vacia(admin_client, '/centros/', 'No hay centros registrados')
+    # 7 columnas desde que el listado muestra última entrega/devolución
     assert '<td class="text-center text-muted py-4" colspan="7">' in body
     assert 'padding:0;width:0' not in body
 
