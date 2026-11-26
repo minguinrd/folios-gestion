@@ -305,6 +305,11 @@ docker compose -f docker-compose.deploy.yml exec -e FLASK_APP=run.py app flask d
 Antes de actualizar en producción: dump SQL (§7). Las migraciones son
 adhierentes: una base nueva y una actualizada quedan en el mismo esquema.
 
+**De 1.11.0 a 1.11.1:** sin migración (`pull` + `up -d`). Corrige los
+títulos de sección del menú lateral, invisibles en modo claro cuando el
+navegador reusaba un CSS viejo en caché: los CSS/JS propios llevan ahora
+`?v=<huella del contenido>` y cambian de URL en cada despliegue.
+
 **De 1.10.x a 1.11.0** (además de lo anterior):
 
 - `flask db upgrade` aplica `0011` (institución y departamento en Marca;

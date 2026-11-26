@@ -53,7 +53,7 @@ El compose de despliegue usa la imagen publicada:
 ```yaml
 services:
   app:
-    image: m809/folios-gestion:1.11.0
+    image: m809/folios-gestion:1.11.1
     ports:
       - "8089:8089"
     env_file: .env
@@ -100,13 +100,18 @@ services:
 
 ```bash
 cd /opt/folios
-# respaldo, compose nuevo (tag 1.11.0) y migración 0011
+# respaldo, compose nuevo (tag 1.11.1) y migración 0011
 docker compose -f docker-compose.deploy.yml exec db sh -c \
   'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mariadb-dump -uroot "$MYSQL_DATABASE"' > respaldo_pre_1.11.sql
 curl -fsSLO https://raw.githubusercontent.com/minguinrd/folios-gestion/main/docker-compose.deploy.yml
 docker compose -f docker-compose.deploy.yml pull && docker compose -f docker-compose.deploy.yml up -d
 docker compose -f docker-compose.deploy.yml exec -e FLASK_APP=run.py app flask db upgrade
 ```
+
+Novedades de 1.11.1: los títulos de sección del menú lateral ya no quedan
+invisibles en modo claro tras actualizar (el navegador reusaba CSS viejo en
+caché; ahora los CSS/JS propios llevan una huella del contenido en la URL).
+No requiere migración.
 
 Novedades de 1.11.0:
 
@@ -149,7 +154,7 @@ en reportes grandes. Detalle en `docs/despliegue.md` §9.
 
 ## Tags
 
-- `m809/folios-gestion:1.11.0` — versión fija, recomendada en
+- `m809/folios-gestion:1.11.1` — versión fija, recomendada en
   producción
 - `m809/folios-gestion:latest` — última build, para pruebas
 
