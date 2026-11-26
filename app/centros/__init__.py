@@ -20,6 +20,7 @@ from app.utils import plural
 from markupsafe import escape
 from datetime import datetime, date
 from io import BytesIO
+from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 
 
@@ -81,11 +82,32 @@ def _datos_del_centro(centro_id):
     return entregas, pendientes, devueltos
 
 
+def _ultimos_movimientos():
+    """{centro_id: (fecha última entrega | None, fecha última devolución | None)}.
+
+    Dos GROUP BY (no una consulta por centro). Una devolución en blanco borra
+    la entrega y no deja DevolucionFolio: no cuenta en ninguna de las dos.
+    """
+    entregas = dict(db.session.query(
+        EntregaFolio.centroId, func.max(EntregaFolio.fechaEntrega))
+        .group_by(EntregaFolio.centroId).all())
+    devoluciones = dict(db.session.query(
+        DevolucionFolio.centroId, func.max(DevolucionFolio.fechaDevolucion))
+        .group_by(DevolucionFolio.centroId).all())
+    return {cid: (entregas.get(cid), devoluciones.get(cid))
+            for cid in set(entregas) | set(devoluciones)}
+
+
+def _fecha_txt(fecha, vacio='-'):
+    return fecha.strftime('%d/%m/%Y') if fecha else vacio
+
+
 @centros_bp.route('/')
 @login_required
 def index():
     centros = Centro.query.order_by(Centro.name).all()
-    return render_template('centros/index.html', centros=centros)
+    return render_template('centros/index.html', centros=centros,
+                           ultimos=_ultimos_movimientos())
 
 
 @centros_bp.route('/<int:id>/detail')
@@ -323,12 +345,14 @@ def export_lista_excel():
     from openpyxl.styles import Font, Alignment, PatternFill
 
     centros = Centro.query.order_by(Centro.name).all()
+    ultimos = _ultimos_movimientos()
 
     wb = Workbook()
     ws = wb.active
     ws.title = 'Centros'
 
-    headers = ['#', 'Nombre', 'Teléfono', 'Dirección', 'Estado']
+    headers = ['#', 'Nombre', 'Teléfono', 'Dirección', 'Estado',
+               'Última entrega', 'Última devolución']
     header_font = Font(bold=True, color='FFFFFF')
     header_fill = PatternFill(start_color='0D6EFD', end_color='0D6EFD', fill_type='solid')
     header_align = Alignment(horizontal='center')
@@ -344,6 +368,9 @@ def export_lista_excel():
         ws.cell(row=row, column=3, value=c.telefono or '')
         ws.cell(row=row, column=4, value=c.direccion or '')
         ws.cell(row=row, column=5, value='Activo' if c.activo else 'Inactivo')
+        entrega, devolucion = ultimos.get(c.id, (None, None))
+        ws.cell(row=row, column=6, value=_fecha_txt(entrega))
+        ws.cell(row=row, column=7, value=_fecha_txt(devolucion))
 
     for col in ws.columns:
         max_length = max(len(str(cell.value or '')) for cell in col)
@@ -366,6 +393,7 @@ def export_lista_pdf():
     from weasyprint import HTML
 
     centros = Centro.query.order_by(Centro.name).all()
+    ultimos = _ultimos_movimientos()
 
     encabezado = encabezado_pdf('Gestión de Centros de Salud')
     html_content = f"""
@@ -397,6 +425,8 @@ def export_lista_pdf():
                     <th>Teléfono</th>
                     <th>Dirección</th>
                     <th>Estado</th>
+                    <th>Última entrega</th>
+                    <th>Última devolución</th>
                 </tr>
             </thead>
             <tbody>
@@ -404,6 +434,7 @@ def export_lista_pdf():
 
     filas = []
     for c in centros:
+        entrega, devolucion = ultimos.get(c.id, (None, None))
         filas.append(f"""
                 <tr>
                     <td>{c.id}</td>
@@ -411,6 +442,8 @@ def export_lista_pdf():
                     <td>{escape(c.telefono or '-')}</td>
                     <td>{escape(c.direccion or '-')}</td>
                     <td>{'Activo' if c.activo else 'Inactivo'}</td>
+                    <td>{_fecha_txt(entrega)}</td>
+                    <td>{_fecha_txt(devolucion)}</td>
                 </tr>
         """)
 

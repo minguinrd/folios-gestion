@@ -260,7 +260,7 @@ curl -fsX POST -H "X-Sync-Token: $SHEET_SYNC_TOKEN" \
 | Devoluciones | `/devoluciones` | Registrar devoluciones |
 | Reportes | `/reportes` | Exportar PDF/Excel |
 | Usuarios | `/usuarios` | Gestión de usuarios |
-| Centros | `/centros` | Centros de salud |
+| Centros | `/centros` | Centros de salud; el listado (y su Excel/PDF) muestra la fecha de la última entrega y la última devolución de cada centro |
 | Certificados | `/certificados` | Tipos de certificado |
 | Auditoría | `/auditoria` | Bitácora de acciones |
 | Sincronización | `/sincronizacion` | Sync folios → Google Sheets (manual + automático) |

@@ -41,6 +41,8 @@
                         <th>Teléfono</th>
                         <th>Dirección</th>
                         <th>Estado</th>
+                        <th>Última entrega</th>
+                        <th>Última devolución</th>
                         <th class="text-center">Acciones</th>
                     </tr>
                 </thead>
@@ -57,6 +59,13 @@
                                 <span class="badge bg-secondary">Inactivo</span>
                             {% endif %}
                         </td>
+                        {% set ult = ultimos.get(c.id, (none, none)) %}
+                        {# data-order ISO: DataTables ordena por fecha real, no por el texto dd/mm/aaaa #}
+                        {% for fecha in ult %}
+                        <td data-order="{{ fecha.isoformat() if fecha else '' }}">
+                            {% if fecha %}{{ fecha.strftime('%d/%m/%Y') }}{% else %}<span class="text-muted">Sin registro</span>{% endif %}
+                        </td>
+                        {% endfor %}
                         <td class="text-center">
                             <a href="{{ url_for('centros.detail', id=c.id) }}" class="btn btn-sm btn-outline-info" title="Ver detalle" aria-label="Ver detalle de {{ c.name }}">
                                 <i class="fas fa-eye" aria-hidden="true"></i>
@@ -74,7 +83,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td class="text-center text-muted py-4" colspan="5">
+                        <td class="text-center text-muted py-4" colspan="7">
                             <i class="fas fa-hospital fa-2x mb-2 d-block"></i>
                             No hay centros registrados
                         </td>

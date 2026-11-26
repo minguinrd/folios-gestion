@@ -193,13 +193,15 @@ def test_centros_lista_excel_contiene_filas(auth_client, app, centro):
 
     wb = load_workbook(BytesIO(resp.data))
     rows = list(wb.active.iter_rows(values_only=True))
-    assert rows[0] == ('#', 'Nombre', 'Teléfono', 'Dirección', 'Estado')
+    assert rows[0] == ('#', 'Nombre', 'Teléfono', 'Dirección', 'Estado',
+                       'Última entrega', 'Última devolución')
     assert len(rows) == 2, f'esperaba header + 1 fila, hay {len(rows)}'
     assert rows[1][0] == centro.id
     assert rows[1][1] == centro.name
     assert rows[1][2] == centro.telefono
     assert rows[1][3] == centro.direccion
     assert rows[1][4] == 'Activo'
+    assert rows[1][5:] == ('-', '-'), 'centro sin movimientos'
 
 
 def test_centros_lista_pdf_contiene_filas(auth_client, app, centro, monkeypatch):
