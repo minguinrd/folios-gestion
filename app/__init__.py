@@ -244,7 +244,7 @@ def render_error(code, title, message):
                 if (temaGuardado) document.documentElement.setAttribute('data-bs-theme', temaGuardado);
             } catch (e) { /* sin localStorage: tema claro por defecto */ }
         </script>
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+        <link href="{{ url_for('static', filename='vendor/bootstrap/5.3.3/bootstrap.min.css') }}" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH">
     </head>
     <body class="d-flex align-items-center justify-content-center" style="min-height:100vh;">
         <div class="text-center">

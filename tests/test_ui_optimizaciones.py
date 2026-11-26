@@ -51,7 +51,7 @@ def test_folios_listado_no_carga_datatables(auth_client, app, tipo):
 
 def test_listado_usuarios_si_carga_datatables(admin_client):
     html = admin_client.get('/usuarios/').get_data(as_text=True)
-    assert 'cdn.datatables.net' in html, 'usuarios usa .data-table'
+    assert 'vendor/datatables/' in html, 'usuarios usa .data-table'
     assert '.DataTable(' in html, 'falta el init de DataTables en usuarios'
 
 
@@ -59,7 +59,7 @@ def test_centro_detail_si_carga_datatables(auth_client, app, centro, tipo):
     make_folio(tipo, anio=2026, numero=1701)
     db.session.commit()
     html = auth_client.get(f'/centros/{centro.id}/detail').get_data(as_text=True)
-    assert 'cdn.datatables.net' in html, 'centros/detail inicializa DataTables'
+    assert 'vendor/datatables/' in html, 'centros/detail inicializa DataTables'
     assert '.DataTable(' in html
 
 
