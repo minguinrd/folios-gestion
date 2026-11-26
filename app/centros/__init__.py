@@ -1,7 +1,8 @@
 import json
+import re
 
 from flask import (Blueprint, render_template, redirect, url_for, flash,
-                   make_response, request, abort)
+                   make_response, request, abort, jsonify)
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from app.extensions import db
@@ -9,11 +10,14 @@ from app.models.centro import Centro
 from app.models.folio import Folio
 from app.models.entrega_folio import EntregaFolio
 from app.models.devolucion_folio import DevolucionFolio
+from app.models.centro_objetivo import CentroObjetivo
+from app.models.tipo_certificado import TipoCertificado
 from app.centros.forms import CentroForm, ImportarCentroForm
 from app.services import import_excel
 from app.services.audit import log_audit
 from app.services.pdf import encabezado_pdf, logo_pdf
 from app.services.queries import get_or_404
+from app.services.sugeridos import parametros as parametros_sugeridos, sugerencias_centro
 from app.services.excel import neutralizar_formulas
 from app.decorators import permiso_requerido
 from app.utils import plural
@@ -118,14 +122,95 @@ def detail(id):
     entregas, pendientes, devueltos = _datos_del_centro(id)
 
     hoy = date.today()
+    ventana, cobertura = parametros_sugeridos()
 
     return render_template('centros/detail.html',
         centro=centro,
         entregas=entregas,
         pendientes=pendientes,
         devueltos=devueltos,
-        hoy=hoy
+        hoy=hoy,
+        sugerencias=sugerencias_centro(id, hoy),
+        ventana_meses=ventana,
+        cobertura_meses=cobertura,
     )
+
+
+@centros_bp.route('/<int:id>/api/sugeridos')
+@login_required
+def api_sugeridos(id):
+    """Sugerido por tipo para el formulario de entrega (solo ayuda visual)."""
+    get_or_404(Centro, id)
+    return jsonify(sugerencias_centro(id))
+
+
+OBJETIVO_MAX = 100000
+# ASCII estricto: str.isdigit() acepta '²' y luego int() lanza (500).
+ENTERO_RE = re.compile(r'^[0-9]{1,6}$')
+
+
+@centros_bp.route('/<int:id>/objetivos', methods=['GET', 'POST'])
+@permiso_requerido('centros.gestionar')
+def objetivos(id):
+    """Existencia objetivo manual por tipo: vacío = cálculo automático."""
+    centro = get_or_404(Centro, id)
+    tipos = TipoCertificado.query.filter_by(activo=True) \
+        .order_by(TipoCertificado.name).all()
+    actuales = {o.tipoCert_id: o for o in
+                CentroObjetivo.query.filter_by(centroId=id).all()}
+
+    if request.method == 'POST':
+        nuevos, errores = {}, []
+        for tipo in tipos:
+            crudo = (request.form.get(f'objetivo_{tipo.id}') or '').strip()
+            if crudo == '':
+                nuevos[tipo.id] = None
+                continue
+            if not ENTERO_RE.match(crudo) or int(crudo) > OBJETIVO_MAX:
+                errores.append(f'{tipo.name}: ingrese un entero entre 0 y {OBJETIVO_MAX} '
+                               'o déjelo vacío.')
+                continue
+            nuevos[tipo.id] = int(crudo)
+        if errores:
+            for error in errores:
+                flash(error, 'danger')
+            return render_template('centros/objetivos.html', centro=centro,
+                                   tipos=tipos, valores=request.form), 400
+
+        cambios = 0
+        for tipo in tipos:
+            fila, valor = actuales.get(tipo.id), nuevos[tipo.id]
+            if valor is None and fila is not None:
+                log_audit(current_user.id, 'DELETE', 'centro_objetivos', fila.id,
+                          fila.to_dict(), None)
+                db.session.delete(fila)
+                cambios += 1
+            elif valor is not None and fila is None:
+                fila = CentroObjetivo(centroId=id, tipoCert_id=tipo.id,
+                                      cantidad=valor, userId=current_user.id)
+                db.session.add(fila)
+                db.session.flush()
+                log_audit(current_user.id, 'INSERT', 'centro_objetivos', fila.id,
+                          None, fila.to_dict())
+                cambios += 1
+            elif valor is not None and fila.cantidad != valor:
+                antes = fila.to_dict()
+                fila.cantidad = valor
+                fila.userId = current_user.id
+                log_audit(current_user.id, 'UPDATE', 'centro_objetivos', fila.id,
+                          antes, fila.to_dict())
+                cambios += 1
+        db.session.commit()
+        if cambios:
+            flash(f'{cambios} {plural(cambios, "objetivo")} '
+                  f'{plural(cambios, "actualizado")}.', 'success')
+        else:
+            flash('Sin cambios en los objetivos.', 'info')
+        return redirect(url_for('centros.detail', id=id))
+
+    valores = {f'objetivo_{tid}': str(o.cantidad) for tid, o in actuales.items()}
+    return render_template('centros/objetivos.html', centro=centro,
+                           tipos=tipos, valores=valores)
 
 
 @centros_bp.route('/create', methods=['GET', 'POST'])

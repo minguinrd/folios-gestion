@@ -69,6 +69,12 @@ class Config:
     # por encima se pide filtrar o usar el Excel, que se genera en streaming.
     REPORTE_PDF_MAX_FILAS = int(os.environ.get('REPORTE_PDF_MAX_FILAS', 5000))
 
+    # Cantidad sugerida por centro y tipo (app/services/sugeridos.py):
+    # consumo = devoluciones de los últimos VENTANA meses; se sugiere cubrir
+    # COBERTURA meses descontando lo que el centro ya tiene pendiente.
+    SUGERIDO_VENTANA_MESES = int(os.environ.get('SUGERIDO_VENTANA_MESES', 6))
+    SUGERIDO_MESES_COBERTURA = int(os.environ.get('SUGERIDO_MESES_COBERTURA', 3))
+
     # Carpeta de folios escaneados: <SCANS_FOLDER>/<anio>/<tipo_id>/<numero>.jpg.
     # Se monta como volumen en docker-compose (sobrevive reinicios del contenedor).
     _PROYECTO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

@@ -82,7 +82,7 @@ def test_centro_detail_tablas_responsive(auth_client, app, centro, tipo):
     db.session.commit()
     html = auth_client.get(f'/centros/{centro.id}/detail').get_data(as_text=True)
     tablas = html.count('<table')
-    assert tablas == 4, f'se esperaban 4 tablas, hay {tablas}'
+    assert tablas == 5, f'se esperaban 5 tablas (incl. sugeridos), hay {tablas}'
     assert html.count('table-responsive') == tablas, (
         f'{tablas} tablas en el detalle de centro pero '
         f'{html.count("table-responsive")} envueltas en .table-responsive')

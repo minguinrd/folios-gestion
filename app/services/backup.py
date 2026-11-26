@@ -40,6 +40,7 @@ TABLAS_ORDEN = (
     # ambos y se borran antes, o la restauración revienta con errno 1451.
     'folio_comentarios',
     'transferencia_folios',
+    'centro_objetivos',  # hijo de centros/tipo_certificados/usuarios
     'audit_logs',
     'permiso_usuarios',
     'sync_config',

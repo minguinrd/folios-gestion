@@ -77,6 +77,13 @@
                         </div>
                     </div>
 
+                    {# Ayuda: sugerido por tipo del centro elegido (no limita la entrega) #}
+                    <div id="panel-sugeridos" class="alert alert-light border small mt-3 mb-0 d-none"
+                         data-url-base="{{ url_for('centros.index') }}" role="status" aria-live="polite">
+                        <div class="fw-semibold mb-1"><i class="fas fa-lightbulb me-1 text-warning"></i>Sugerido para este centro</div>
+                        <ul id="lista-sugeridos" class="mb-0 ps-3"></ul>
+                    </div>
+
                     <hr>
 
                     <div class="d-flex justify-content-end gap-2">
@@ -198,5 +205,56 @@
 
     // Estado inicial del contador y del resumen (POST revalidado con selección)
     updateCounter();
+
+    // --- Sugerido por tipo del centro elegido (solo ayuda visual) ---
+    // Se arma con textContent: nombres de tipo vienen de la DB (nunca innerHTML).
+    const centroSelect = document.getElementById('centroId');
+    const panelSug = document.getElementById('panel-sugeridos');
+    const listaSug = document.getElementById('lista-sugeridos');
+    let sugeridos = [];
+    let seqSug = 0;
+
+    function pintarSugeridos() {
+        listaSug.replaceChildren();
+        const tipoActual = Number(tipoSelect.value) || null;
+        sugeridos.forEach(function (s) {
+            const li = document.createElement('li');
+            const nombre = document.createElement('span');
+            nombre.textContent = s.tipo.nombre + ': sugerido ';
+            const valor = document.createElement('strong');
+            valor.textContent = s.sugerido;
+            const extra = document.createElement('span');
+            extra.className = 'text-muted';
+            extra.textContent = ' (tiene ' + s.pendientes + ' pendiente' + (s.pendientes === 1 ? '' : 's') + ')';
+            li.append(nombre, valor, extra);
+            if (s.tipo.id === tipoActual) li.classList.add('fw-semibold', 'text-primary');
+            listaSug.appendChild(li);
+        });
+        panelSug.classList.toggle('d-none', sugeridos.length === 0);
+    }
+
+    async function cargarSugeridos() {
+        const t = ++seqSug;
+        sugeridos = [];
+        const id = Number(centroSelect.value);
+        if (!id) { pintarSugeridos(); return; }
+        try {
+            const base = panelSug.dataset.urlBase.replace(/\/$/, '');
+            const resp = await fetch(base + '/' + id + '/api/sugeridos',
+                                     {headers: {'Accept': 'application/json'}});
+            if (!resp.ok) throw new Error(resp.status);
+            const datos = await resp.json();
+            if (t !== seqSug) return;  // llegó tarde: el usuario ya cambió de centro
+            sugeridos = datos;
+        } catch (e) {
+            if (t !== seqSug) return;
+            sugeridos = [];  // sin ayuda, pero la entrega sigue funcionando
+        }
+        pintarSugeridos();
+    }
+
+    centroSelect.addEventListener('change', cargarSugeridos);
+    tipoSelect.addEventListener('change', pintarSugeridos);
+    if (centroSelect.value) cargarSugeridos();
 </script>
 {% endblock %}

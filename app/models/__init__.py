@@ -11,6 +11,7 @@ from app.models.permiso_usuario import PermisoUsuario
 from app.models.marca import MarcaConfig
 from app.models.folio_comentario import FolioComentario
 from app.models.transferencia_folio import TransferenciaFolio
+from app.models.centro_objetivo import CentroObjetivo
 
 __all__ = [
     'Usuario',
@@ -26,4 +27,5 @@ __all__ = [
     'MarcaConfig',
     'FolioComentario',
     'TransferenciaFolio',
+    'CentroObjetivo',
 ]

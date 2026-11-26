@@ -67,6 +67,8 @@ troubleshooting— en [`docs/despliegue.md`](docs/despliegue.md).
 | `SESSION_COOKIE_SECURE` | `false` | Póngala en `true` **solo** detrás de TLS. Con HTTP plano `true` hace que el navegador descarte la cookie y el login no persista. |
 | `TRUST_PROXY` | `false` | `true` solo detrás de un reverse proxy que fije `X-Forwarded-For`. Permite que los rate limits distingan IP reales. |
 | `RATELIMIT_DEFAULT` | `300 per hour` | Tope global de peticiones. `/health` va exento. |
+| `SUGERIDO_VENTANA_MESES` | `6` | Meses de devoluciones usados para calcular el consumo mensual de cada centro (cantidad sugerida). |
+| `SUGERIDO_MESES_COBERTURA` | `3` | Meses de consumo que la cantidad sugerida busca cubrir. |
 | `REPORTE_PDF_MAX_FILAS` | `5000` | Tope de filas del PDF de Reportes (WeasyPrint arma todo en memoria). Por encima se pide filtrar o usar el Excel. |
 | `TZ` | UTC (contenedor) | Hora local para las fechas de auditoría y detalle de folio (se guardan en UTC). |
 | `SCANS_FOLDER` | `<raíz del proyecto>/scans` | Carpeta de los JPG de folios escaneados: `<SCANS_FOLDER>/<año>/<id del tipo>/<número>.jpg`. En Docker montada como `./scans:/app/scans` — ver el gotcha de ownership en [Escaneos](#escaneos). |
@@ -163,7 +165,7 @@ el esquema **ya tiene**: stamp a `0001_baseline` haría que `0004` falle con el
 mismo error si `sync_config` ya existe. Respalde y elija la revisión por las
 tablas presentes (`sync_config` → ≥0004, `permiso_usuarios` → ≥0005,
 `marca_config` → ≥0006, `folio_comentarios` → ≥0007,
-`transferencia_folios` → ≥0008; el CHECK `ck_folios_estado` → ≥0009):
+`transferencia_folios` → ≥0008; el CHECK `ck_folios_estado` → ≥0009; `centro_objetivos` → ≥0010):
 
 ```bash
 # 1) Respaldo antes de tocar alembic_version
@@ -172,13 +174,13 @@ docker compose exec db mariadb-dump -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" > b
 # 2) ¿Qué tablas hay y cuántas filas tiene alembic_version?
 docker compose exec db mariadb -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -e 'SHOW TABLES; SELECT * FROM alembic_version;'
 
-# 3) Stamp a esa revisión (create_all con los modelos actuales → 0009) y subir
-FLASK_APP=run.py flask db stamp 0009_estado_check_fechas
+# 3) Stamp a esa revisión (create_all con los modelos actuales → 0010) y subir
+FLASK_APP=run.py flask db stamp 0010_centro_objetivos
 FLASK_APP=run.py flask db upgrade      # aplica solo lo que falta
 FLASK_APP=run.py flask db check        # debe quedar limpio
 ```
 
-Revisions: `0001_baseline` (esquema original) → `0002_integrity` (constraints únicos) → `0003_indexes` (índices compuestos de consulta: `(anioCert, estado, nulo)`, `(tipoCert_id, anioCert)` y `audit_logs.fecha`; elimina los índices de una sola columna que quedan subsumidos) → `0004_sync_config` (tabla `sync_config`: estado y frecuencia de la sincronización a Google Sheets) → `0005_permisos_usuario` (tabla `permiso_usuarios`: permisos granulares por usuario, FK a `usuarios` con CASCADE) → `0006_marca_config` (tabla `marca_config`: nombre/subtítulo de la app + logo y favicon como BLOB) → `0007_folio_comentarios` (tabla `folio_comentarios`: historial de comentarios con autor en el detalle de folio) → `0008_transferencias` (tabla `transferencia_folios`: transferencia de folios entregados entre centros de salud con motivo obligatorio y seguimiento) → `0009_estado_check_fechas` (CHECK `ck_folios_estado` sobre `folios.estado` + índices `entrega_folios.fechaEntrega` y `devolucion_folios.fechaDevolucion`; aborta con la lista de valores si hay estados fuera de catálogo — corríjalos con `UPDATE` y repita).
+Revisions: `0001_baseline` (esquema original) → `0002_integrity` (constraints únicos) → `0003_indexes` (índices compuestos de consulta: `(anioCert, estado, nulo)`, `(tipoCert_id, anioCert)` y `audit_logs.fecha`; elimina los índices de una sola columna que quedan subsumidos) → `0004_sync_config` (tabla `sync_config`: estado y frecuencia de la sincronización a Google Sheets) → `0005_permisos_usuario` (tabla `permiso_usuarios`: permisos granulares por usuario, FK a `usuarios` con CASCADE) → `0006_marca_config` (tabla `marca_config`: nombre/subtítulo de la app + logo y favicon como BLOB) → `0007_folio_comentarios` (tabla `folio_comentarios`: historial de comentarios con autor en el detalle de folio) → `0008_transferencias` (tabla `transferencia_folios`: transferencia de folios entregados entre centros de salud con motivo obligatorio y seguimiento) → `0009_estado_check_fechas` (CHECK `ck_folios_estado` sobre `folios.estado` + índices `entrega_folios.fechaEntrega` y `devolucion_folios.fechaDevolucion`; aborta con la lista de valores si hay estados fuera de catálogo — corríjalos con `UPDATE` y repita) → `0010_centro_objetivos` (tabla `centro_objetivos`: existencia objetivo manual por centro y tipo para la cantidad sugerida).
 
 **Antes de `0002` en una BD con datos**, compruebe que no haya duplicados (el ALTER fallará si los hay):
 
@@ -260,7 +262,7 @@ curl -fsX POST -H "X-Sync-Token: $SHEET_SYNC_TOKEN" \
 | Devoluciones | `/devoluciones` | Registrar devoluciones |
 | Reportes | `/reportes` | Exportar PDF/Excel |
 | Usuarios | `/usuarios` | Gestión de usuarios |
-| Centros | `/centros` | Centros de salud; el listado (y su Excel/PDF) muestra la fecha de la última entrega y la última devolución de cada centro |
+| Centros | `/centros` | Centros de salud; el listado (y su Excel/PDF) muestra la fecha de la última entrega y la última devolución de cada centro. El detalle muestra la **cantidad sugerida por tipo** (ver abajo), que también aparece como ayuda al registrar una entrega |
 | Certificados | `/certificados` | Tipos de certificado |
 | Auditoría | `/auditoria` | Bitácora de acciones |
 | Sincronización | `/sincronizacion` | Sync folios → Google Sheets (manual + automático) |
@@ -268,6 +270,26 @@ curl -fsX POST -H "X-Sync-Token: $SHEET_SYNC_TOKEN" \
 | Marca | `/marca` | Nombre, subtítulo, logo y favicon (admin) |
 | Copias | `/backup` | Descarga y restauración de respaldos JSON (admin) |
 | Escaneos | `/escaneos/subir` | Subir JPG de folios escaneados y marcarlos (permiso `escaneos.subir`) |
+
+## Cantidad sugerida por centro
+
+En el detalle de cada centro, la tarjeta **Sugerido por tipo de certificado**
+indica cuántos folios de cada tipo conviene entregar. El mismo cálculo aparece
+como ayuda en **Entregas → Nueva entrega** al elegir el centro (no limita la
+entrega).
+
+- **Consumo mensual** = folios devueltos por el centro en los últimos
+  `SUGERIDO_VENTANA_MESES` meses ÷ meses (si el centro es más nuevo que la
+  ventana, se divide entre los meses desde su primera entrega).
+- **Existencia objetivo** = consumo mensual × `SUGERIDO_MESES_COBERTURA`
+  (redondeado hacia arriba), o el valor **manual** que fije un administrador
+  en **Ajustar objetivos** (permiso `centros.gestionar`; vacío = automático).
+- **Sugerido a entregar** = existencia objetivo − folios que el centro todavía
+  tiene pendientes (nunca negativo). Se marca en rojo si el almacén no tiene
+  suficientes folios disponibles.
+
+Sin devoluciones registradas el origen es "Sin historial" y el sugerido es 0:
+mientras se acumula historial, fije objetivos manuales.
 
 ## Escaneos
 
