@@ -63,96 +63,71 @@
         </div>
     </div>
 
+    {# Las cifras de entregados/pendientes/devueltos ya van en las pestañas:
+       en su lugar, la cantidad sugerida junto a la información del centro. #}
     <div class="col-lg-8">
-        <div class="row g-3 h-100 align-items-center">
-            <div class="col-md-4">
-                <div class="card border-0 shadow-sm bg-primary text-white">
-                    <div class="card-body text-center">
-                        <h2 class="mb-0">{{ entregas|length }}</h2>
-                        <small>Total Entregados</small>
-                    </div>
+        {% set origen_badge = {'manual': ('bg-primary', 'Manual'),
+                                'historial': ('bg-info text-dark', 'Historial'),
+                                'sin_historial': ('bg-secondary', 'Sin historial')} %}
+        <div class="card border-0 shadow-sm h-100" id="card-sugeridos">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="card-title text-muted mb-0">
+                        <i class="fas fa-lightbulb me-1"></i>Sugerido por tipo de certificado
+                    </h6>
+                    {% if puede('centros.gestionar') %}
+                    <a href="{{ url_for('centros.objetivos', id=centro.id) }}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-sliders me-1"></i>Ajustar objetivos
+                    </a>
+                    {% endif %}
                 </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card border-0 shadow-sm bg-warning text-dark">
-                    <div class="card-body text-center">
-                        <h2 class="mb-0">{{ pendientes|length }}</h2>
-                        <small>Pendientes Devolución</small>
-                    </div>
+                {% if sugerencias %}
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-2">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Tipo</th>
+                                <th class="text-end">Consumo mensual</th>
+                                <th class="text-end">Pendientes en el centro</th>
+                                <th class="text-end">Existencia objetivo</th>
+                                <th class="text-end">Sugerido a entregar</th>
+                                <th class="text-end">Disponibles en almacén</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for s in sugerencias %}
+                            {% set badge = origen_badge[s.origen] %}
+                            <tr>
+                                <td>{{ s.tipo.nombre }}</td>
+                                <td class="text-end">{{ s.consumo_mensual }}</td>
+                                <td class="text-end">{{ s.pendientes }}</td>
+                                <td class="text-end">
+                                    {{ s.objetivo }}
+                                    <span class="badge {{ badge[0] }} ms-1">{{ badge[1] }}</span>
+                                </td>
+                                <td class="text-end fw-bold fs-6">{{ s.sugerido }}</td>
+                                <td class="text-end {% if s.insuficiente %}text-danger fw-semibold{% endif %}">
+                                    {{ s.disponibles }}
+                                    {% if s.insuficiente %}
+                                    <i class="fas fa-triangle-exclamation ms-1" title="No alcanza para el sugerido" aria-label="No alcanza para el sugerido"></i>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card border-0 shadow-sm bg-success text-white">
-                    <div class="card-body text-center">
-                        <h2 class="mb-0">{{ devueltos|length }}</h2>
-                        <small>Devueltos</small>
-                    </div>
-                </div>
+                <p class="small text-muted mb-0">
+                    Sugerido = existencia objetivo − folios pendientes en el centro.
+                    Objetivo automático: promedio mensual de devoluciones de los últimos
+                    {{ ventana_meses }} meses × {{ cobertura_meses }} meses de cobertura.
+                    Un objetivo <strong>Manual</strong> reemplaza al cálculo.
+                </p>
+                {% else %}
+                <p class="text-muted mb-0">No hay tipos de certificado activos.</p>
+                {% endif %}
             </div>
         </div>
-    </div>
-</div>
-
-{% set origen_badge = {'manual': ('bg-primary', 'Manual'),
-                        'historial': ('bg-info text-dark', 'Historial'),
-                        'sin_historial': ('bg-secondary', 'Sin historial')} %}
-<div class="card border-0 shadow-sm mb-4" id="card-sugeridos">
-    <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h6 class="card-title text-muted mb-0">
-                <i class="fas fa-lightbulb me-1"></i>Sugerido por tipo de certificado
-            </h6>
-            {% if puede('centros.gestionar') %}
-            <a href="{{ url_for('centros.objetivos', id=centro.id) }}" class="btn btn-sm btn-outline-primary">
-                <i class="fas fa-sliders me-1"></i>Ajustar objetivos
-            </a>
-            {% endif %}
-        </div>
-        {% if sugerencias %}
-        <div class="table-responsive">
-            <table class="table table-sm align-middle mb-2">
-                <thead class="table-light">
-                    <tr>
-                        <th>Tipo</th>
-                        <th class="text-end">Consumo mensual</th>
-                        <th class="text-end">Pendientes en el centro</th>
-                        <th class="text-end">Existencia objetivo</th>
-                        <th class="text-end">Sugerido a entregar</th>
-                        <th class="text-end">Disponibles en almacén</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for s in sugerencias %}
-                    {% set badge = origen_badge[s.origen] %}
-                    <tr>
-                        <td>{{ s.tipo.nombre }}</td>
-                        <td class="text-end">{{ s.consumo_mensual }}</td>
-                        <td class="text-end">{{ s.pendientes }}</td>
-                        <td class="text-end">
-                            {{ s.objetivo }}
-                            <span class="badge {{ badge[0] }} ms-1">{{ badge[1] }}</span>
-                        </td>
-                        <td class="text-end fw-bold fs-6">{{ s.sugerido }}</td>
-                        <td class="text-end {% if s.insuficiente %}text-danger fw-semibold{% endif %}">
-                            {{ s.disponibles }}
-                            {% if s.insuficiente %}
-                            <i class="fas fa-triangle-exclamation ms-1" title="No alcanza para el sugerido" aria-label="No alcanza para el sugerido"></i>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        <p class="small text-muted mb-0">
-            Sugerido = existencia objetivo − folios pendientes en el centro.
-            Objetivo automático: promedio mensual de devoluciones de los últimos
-            {{ ventana_meses }} meses × {{ cobertura_meses }} meses de cobertura.
-            Un objetivo <strong>Manual</strong> reemplaza al cálculo.
-        </p>
-        {% else %}
-        <p class="text-muted mb-0">No hay tipos de certificado activos.</p>
-        {% endif %}
     </div>
 </div>
 

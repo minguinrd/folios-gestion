@@ -229,3 +229,15 @@ def test_todas_las_pantallas_con_migas_renderizan(admin_client, admin, tipo, cen
         resp = admin_client.get(url)
         assert resp.status_code == 200, (url, resp.status_code)
         assert 'Ruta de navegación' in resp.get_data(as_text=True), url
+
+
+# --- Detalle del centro más liviano ---
+
+
+def test_detalle_centro_sin_kpis_duplicados_y_sugerido_al_lado(auth_client, tipo, centro):
+    html = auth_client.get(f'/centros/{centro.id}/detail').get_data(as_text=True)
+    assert 'Total Entregados' not in html and 'Pendientes Devolución' not in html, \
+        'las cifras ya están en las pestañas'
+    assert re.search(r'Pendientes \(0\)', html), 'la cifra sigue visible en la pestaña'
+    fila = html.split('Información del Centro', 1)[1].split('nav nav-tabs', 1)[0]
+    assert 'id="card-sugeridos"' in fila, 'sugeridos en la misma fila que la información'
