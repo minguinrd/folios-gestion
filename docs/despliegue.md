@@ -305,6 +305,23 @@ docker compose -f docker-compose.deploy.yml exec -e FLASK_APP=run.py app flask d
 Antes de actualizar en producción: dump SQL (§7). Las migraciones son
 adhierentes: una base nueva y una actualizada quedan en el mismo esquema.
 
+**De 1.9.x a 1.10.0** (además de lo anterior):
+
+- `flask db upgrade` aplica `0009` (CHECK de `folios.estado`) y `0010`
+  (objetivos por centro). Si `0009` aborta listando estados fuera de
+  catálogo, corríjalos con `UPDATE folios SET estado=...` y repita.
+- Escaneos: pasan a `scans/<año>/<id del tipo>/<número>.jpg`. Mueva los
+  existentes (primero simule, luego aplique) y valide:
+  ```bash
+  docker compose -f docker-compose.deploy.yml exec app python migrar_escaneos.py
+  docker compose -f docker-compose.deploy.yml exec app python migrar_escaneos.py --aplicar
+  ```
+  Los ambiguos (mismo número y año en varios tipos) se listan y se mueven a
+  mano; luego **Folios → Validar Escaneados**.
+- Plantilla de importar digitado/nulos: columnas `folio, anio, tipo`
+  (el formato viejo de solo `folio` sigue aceptado).
+- Subir escaneos ahora pide el tipo de certificado.
+
 ## 10. Troubleshooting
 
 | Síntoma | Causa y arreglo |
