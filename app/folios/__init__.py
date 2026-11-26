@@ -1,4 +1,5 @@
 import json
+from datetime import date
 
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
 from flask_login import login_required, current_user
@@ -23,6 +24,8 @@ from app.utils import plural, quiere_json
 folios_bp = Blueprint('folios', __name__, url_prefix='/folios')
 
 HEADERS_FOLIO = ['folio']
+# Opcionales (plantilla nueva): acotan un número que se repite entre año/tipo.
+HEADERS_FOLIO_OPCIONALES = ['anio', 'tipo']
 MAX_PREVIA_MOSTRAR = 200
 
 
@@ -428,48 +431,81 @@ def transferencias():
 def _preview_flag(filas, attr):
     """Filas del Excel → (preview, payload) para la bandera booleana `attr`.
 
-    Un número de folio no es único (se repite entre año/tipo): cada número
-    matchea todos los folios DB con ese número. El preview muestra cuántas
-    filas matchean y cuántas quedarían marcadas; el payload lleva solo los
-    números válidos.
+    Un número de folio no es único (se repite entre año/tipo). Las columnas
+    opcionales `anio` y `tipo` (nombre del tipo de certificado) acotan la
+    búsqueda; una fila que aun así coincide con más de un folio es AMBIGUA y
+    no se marca (antes se marcaban todas las coincidencias: un "1000" anulaba
+    el 1000 de todos los años y tipos). El payload lleva los ids exactos.
     """
+    tipos = {t.name.strip().lower(): t.id for t in TipoCertificado.query.all()}
     preview = []
-    numeros = []
+    pendientes = []
     vistos = set()
+
+    def _error(i, numero, mensaje, anio=None, tipo=None):
+        preview.append({'n': i, 'folio': numero, 'anio': anio, 'tipo': tipo,
+                        'encontrados': 0, 'ya_marcado': 0,
+                        'a_actualizar': 0, 'error': mensaje})
+
     for i, fila in enumerate(filas, 1):
         numero = import_excel.a_entero(fila.get('folio'))
+        anio_raw, tipo_raw = fila.get('anio'), fila.get('tipo')
+        tipo_txt = '' if tipo_raw is None else str(tipo_raw).strip()
         if numero is None or numero <= 0:
-            preview.append({'n': i, 'folio': fila.get('folio'), 'encontrados': 0,
-                            'ya_marcado': 0, 'a_actualizar': 0,
-                            'error': 'Número inválido'})
+            _error(i, fila.get('folio'), 'Número inválido', anio_raw, tipo_txt)
             continue
-        if numero in vistos:
-            preview.append({'n': i, 'folio': numero, 'encontrados': 0,
-                            'ya_marcado': 0, 'a_actualizar': 0,
-                            'error': 'Repetido en el archivo'})
+        anio = None
+        if anio_raw is not None and str(anio_raw).strip() != '':
+            anio = import_excel.a_entero(anio_raw)
+            if anio is None or anio < 1900 or anio > 9999:
+                _error(i, numero, 'Año inválido', anio_raw, tipo_txt)
+                continue
+        tipo_id = None
+        if tipo_txt:
+            tipo_id = tipos.get(tipo_txt.lower())
+            if tipo_id is None:
+                _error(i, numero, 'Tipo desconocido', anio, tipo_txt)
+                continue
+        clave = (numero, anio, tipo_id)
+        if clave in vistos:
+            _error(i, numero, 'Repetido en el archivo', anio, tipo_txt)
             continue
-        vistos.add(numero)
-        numeros.append(numero)
-        preview.append({'n': i, 'folio': numero, 'encontrados': None,
-                        'ya_marcado': 0, 'a_actualizar': 0, 'error': None})
+        vistos.add(clave)
+        item = {'n': i, 'folio': numero, 'anio': anio, 'tipo': tipo_txt,
+                'encontrados': None, 'ya_marcado': 0, 'a_actualizar': 0,
+                'error': None}
+        preview.append(item)
+        pendientes.append((item, anio, tipo_id))
 
-    encontrados = {}
+    por_numero = {}
+    numeros = {item['folio'] for item, _, _ in pendientes}
     if numeros:
         for folio in Folio.query.filter(Folio.folio.in_(numeros)).all():
-            encontrados.setdefault(folio.folio, []).append(folio)
+            por_numero.setdefault(folio.folio, []).append(folio)
 
     payload = []
-    for item in preview:
-        if item['error'] is not None:
-            continue
-        filas_folio = encontrados.get(item['folio'], [])
-        item['encontrados'] = len(filas_folio)
-        item['ya_marcado'] = sum(1 for f in filas_folio if getattr(f, attr))
-        item['a_actualizar'] = len(filas_folio) - item['ya_marcado']
-        if not filas_folio:
+    ids_vistos = set()
+    for item, anio, tipo_id in pendientes:
+        coincidencias = [
+            f for f in por_numero.get(item['folio'], [])
+            if (anio is None or f.anioCert == anio)
+            and (tipo_id is None or f.tipoCert_id == tipo_id)
+        ]
+        item['encontrados'] = len(coincidencias)
+        if not coincidencias:
             item['error'] = 'No existe'
             continue
-        payload.append(item['folio'])
+        if len(coincidencias) > 1:
+            item['error'] = 'Ambiguo: indique año y tipo'
+            continue
+        folio = coincidencias[0]
+        if folio.id in ids_vistos:
+            item['error'] = 'Repetido en el archivo'
+            continue
+        ids_vistos.add(folio.id)
+        item['ya_marcado'] = 1 if getattr(folio, attr) else 0
+        item['a_actualizar'] = 1 - item['ya_marcado']
+        payload.append(folio.id)
     return preview, payload
 
 
@@ -479,7 +515,7 @@ def _preview_digitado(filas):
 
 
 def _parsear_payload(payload_raw):
-    """Hidden payload → lista de números únicos, o None si es inválido."""
+    """Hidden payload → conjunto de ids de folio únicos, o None si es inválido."""
     try:
         datos = json.loads(payload_raw or '')
     except (TypeError, ValueError):
@@ -487,20 +523,29 @@ def _parsear_payload(payload_raw):
     if not isinstance(datos, list) or not datos \
             or len(datos) > import_excel.MAX_FOLIOS_POR_ARCHIVO:
         return None
-    numeros = set()
+    ids = set()
     for valor in datos:
         if not isinstance(valor, int) or isinstance(valor, bool) or valor <= 0:
             return None
-        numeros.add(valor)
-    return numeros
+        ids.add(valor)
+    return ids
+
+
+def _leer_import_folios(archivo):
+    return import_excel.leer_filas(
+        archivo, HEADERS_FOLIO, import_excel.MAX_FOLIOS_POR_ARCHIVO,
+        opcionales=HEADERS_FOLIO_OPCIONALES)
 
 
 @folios_bp.route('/plantilla')
 @login_required
 @permiso_requerido('folios.importar')
 def plantilla():
+    tipo = TipoCertificado.query.filter_by(activo=True) \
+        .order_by(TipoCertificado.name).first()
     return import_excel.respuesta_plantilla(
-        'plantilla_folios.xlsx', HEADERS_FOLIO, [1000])
+        'plantilla_folios.xlsx', HEADERS_FOLIO + HEADERS_FOLIO_OPCIONALES,
+        [1000, date.today().year, tipo.name if tipo else ''])
 
 
 @folios_bp.route('/importar', methods=['GET', 'POST'])
@@ -510,9 +555,7 @@ def importar():
     form = ImportarFolioForm()
     if form.validate_on_submit():
         try:
-            filas = import_excel.leer_filas(
-                form.archivo.data, HEADERS_FOLIO,
-                import_excel.MAX_FOLIOS_POR_ARCHIVO)
+            filas = _leer_import_folios(form.archivo.data)
         except import_excel.ImportExcelError as e:
             flash(str(e), 'danger')
             return render_template('folios/importar.html', form=form)
@@ -534,15 +577,15 @@ def importar():
 @login_required
 @permiso_requerido('folios.importar')
 def importar_confirmar():
-    numeros = _parsear_payload(request.form.get('payload'))
-    if numeros is None:
+    ids = _parsear_payload(request.form.get('payload'))
+    if ids is None:
         flash('Datos de importación inválidos. Repita la operación.', 'danger')
         return redirect(url_for('folios.importar'))
 
     # Revalida contra la DB: el hidden es editable y los folios pudieron
-    # cambiar desde la vista previa.
+    # cambiar desde la vista previa (ids inexistentes se ignoran).
     actualizados = 0
-    for folio in Folio.query.filter(Folio.folio.in_(numeros)).all():
+    for folio in Folio.query.filter(Folio.id.in_(ids)).all():
         if folio.digitado:
             continue
         old = {'digitado': folio.digitado}
@@ -569,9 +612,7 @@ def importar_nulos():
     form = ImportarFolioForm()
     if form.validate_on_submit():
         try:
-            filas = import_excel.leer_filas(
-                form.archivo.data, HEADERS_FOLIO,
-                import_excel.MAX_FOLIOS_POR_ARCHIVO)
+            filas = _leer_import_folios(form.archivo.data)
         except import_excel.ImportExcelError as e:
             flash(str(e), 'danger')
             return render_template('folios/importar.html', form=form,
@@ -594,15 +635,15 @@ def importar_nulos():
 @login_required
 @permiso_requerido('folios.importar')
 def importar_nulos_confirmar():
-    numeros = _parsear_payload(request.form.get('payload'))
-    if numeros is None:
+    ids = _parsear_payload(request.form.get('payload'))
+    if ids is None:
         flash('Datos de importación inválidos. Repita la operación.', 'danger')
         return redirect(url_for('folios.importar_nulos'))
 
     # Revalida contra la DB: el hidden es editable y los folios pudieron
-    # cambiar desde la vista previa.
+    # cambiar desde la vista previa (ids inexistentes se ignoran).
     actualizados = 0
-    for folio in Folio.query.filter(Folio.folio.in_(numeros)).all():
+    for folio in Folio.query.filter(Folio.id.in_(ids)).all():
         if folio.nulo:
             continue
         old = {'nulo': folio.nulo}

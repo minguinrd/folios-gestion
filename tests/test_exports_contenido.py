@@ -269,3 +269,30 @@ def test_filtro_anio_con_todos_y_rango_dinamico(auth_client):
     anio = datetime.now().year
     assert str(anio - 5) in opciones, 'el rango debe ser dinámico hacia atrás'
     assert str(anio) in opciones
+
+
+def test_reportes_pdf_supera_tope_redirige_con_aviso(auth_client, app, tipo):
+    """Sobre REPORTE_PDF_MAX_FILAS no se genera el PDF (timeout/RAM)."""
+    for n in range(3):
+        make_folio(tipo, anio=Y, numero=7000 + n, rangoId=1)
+    db.session.commit()
+    app.config['REPORTE_PDF_MAX_FILAS'] = 2
+    resp = auth_client.get(f'/reportes/export/pdf?anioCert={Y}',
+                           follow_redirects=True)
+    assert resp.status_code == 200
+    assert resp.request.path == '/reportes/'
+    text = resp.get_data(as_text=True)
+    assert 'el PDF admite hasta 2' in text
+    assert 'descargue el Excel' in text
+
+
+def test_reportes_excel_varios_lotes(auth_client, app, tipo, monkeypatch):
+    """yield_per en lotes chicos: no se pierden ni duplican filas entre lotes."""
+    import app.reportes as reportes
+    monkeypatch.setattr(reportes, 'LOTE_EXPORT', 2)
+    for n in range(5):
+        make_folio(tipo, anio=Y, numero=8000 + n, rangoId=1)
+    db.session.commit()
+    resp = auth_client.get(f'/reportes/export/excel?anioCert={Y}')
+    rows = list(load_workbook(BytesIO(resp.data)).active.iter_rows(values_only=True))
+    assert [r[0] for r in rows[1:]] == [8000, 8001, 8002, 8003, 8004]

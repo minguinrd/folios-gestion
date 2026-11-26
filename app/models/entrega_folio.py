@@ -8,6 +8,8 @@ class EntregaFolio(db.Model):
         db.Index('idx_entrega_folio_id', 'folio_id'),
         db.Index('idx_entrega_centroId', 'centroId'),
         db.Index('idx_entrega_userId', 'userId'),
+        # Tendencia mensual del dashboard: filtro por rango de fechas.
+        db.Index('idx_entrega_fecha', 'fechaEntrega'),
         db.UniqueConstraint('folio_id', name='uq_entrega_folios_folio_id'),
     )
 

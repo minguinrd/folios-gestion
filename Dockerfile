@@ -27,12 +27,12 @@ RUN useradd --create-home --shell /bin/bash appuser
 
 WORKDIR /app
 
-COPY . .
-
-RUN chown -R appuser:appuser /app
+# --chown en el COPY: un `RUN chown -R` aparte duplica toda la capa de la app.
+COPY --chown=appuser:appuser . .
 
 USER appuser
 
 EXPOSE 8089
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8089", "--workers", "4", "--timeout", "120", "run:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8089", "--workers", "4", "--timeout", "120", \
+     "--access-logfile", "-", "run:app"]

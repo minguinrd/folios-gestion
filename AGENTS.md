@@ -39,7 +39,9 @@ FLASK_APP=run.py venv/bin/flask db check                # esquema == modelos
 # DB existente pre-migraciones: FLASK_APP=run.py flask db stamp 0001_baseline (una vez) y luego upgrade
 ```
 
-Test suite exists (`tests/`, pytest + `requirements-dev.txt`). No linter, formatter, or typecheck commands exist in this repo.
+Test suite exists (`tests/`, pytest; `requirements-dev.txt` incluye `requirements.txt`). No linter, formatter, or typecheck commands exist in this repo. Python 3.11 (`.python-version`, igual que el Dockerfile): un venv de otra versión del sistema se rompe al actualizar Python (`No module named 'encodings'`) → recrearlo con `uv venv -p 3.11 venv`.
+
+Dependencias: `venv/bin/pip-audit -r requirements.txt` (en `requirements-dev.txt`) antes de cada release — las versiones están fijadas y los CVE no llegan solos.
 
 ## Environment
 
@@ -68,12 +70,15 @@ app/
   escaneos/        # /escaneos — subida de folios escaneados JPG
   usuarios/        # /usuarios — user CRUD
   centros/         # /centros — health center CRUD + list PDF/Excel export + xlsx import
-   certificados/    # /certificados — certificate type CRUD
-   auditoria/       # /auditoria — audit log
-   permisos/        # /permisos — permisos granulares por usuario (admin)
-   marca/           # /marca — marca de la app: nombre, subtítulo, logo, favicon (admin)
-   backup/          # /backup — copias de respaldo y restauración (admin)
-   main/            # `/` redirects to dashboard
+  certificados/    # /certificados — certificate type CRUD
+  auditoria/       # /auditoria — audit log
+  permisos/        # /permisos — permisos granulares por usuario (admin)
+  marca/           # /marca — marca de la app: nombre, subtítulo, logo, favicon (admin)
+  backup/          # /backup — copias de respaldo y restauración (admin)
+  inspecciones/    # /inspecciones — panel de inconsistencias (services/inspecciones.py)
+  sincronizacion/  # /sincronizacion — sync folios → Google Sheets (services/gsheets.py)
+  main/            # `/` redirects to dashboard
+run_worker.py      # servicio compose `sync-worker` (APScheduler, tick 1 min, latido para healthcheck_worker.py)
   templates/       # Jinja2 templates (shared across blueprints)
   static/          # CSS/JS/images
 ```
@@ -93,7 +98,7 @@ app/
 - `SECRET_KEY` must be set in `.env` or the app raises `RuntimeError` on startup (`app/config.py:10`).
 - App config selected via `FLASK_CONFIG` (`development`/`production`), default **production**. Docker forces `FLASK_CONFIG: production` in `docker-compose.yml`; local debug needs `FLASK_CONFIG=development`.
 - `init_db.py` creates admin with a **random password** printed once to console — no fixed default anymore.
-- Migrations: DBs existentes pre-migraciones requieren `flask db stamp 0001_baseline` una vez antes de `flask db upgrade` (ver README para SQL de duplicados previo a `0002_integrity`). `0003_indexes` cambia índices de `folios`/`audit_logs` — crea los compuestos antes de dropear los simples porque el FK `folios.tipoCert_id` exige un índice. **El stamp es a la revisión que el esquema YA tiene**: DB creada con `init_db.py` (`create_all` con los modelos actuales, `alembic_version` vacía) falla en `0001_baseline` con `Table '…' already exists` → stamp a la última revisión reflejada por las tablas presentes (hoy `0008_transferencias`), no a `0001` (fallaría igual en `0004`). Ver README → "Síntoma Table '…' already exists".
+- Migrations: DBs existentes pre-migraciones requieren `flask db stamp 0001_baseline` una vez antes de `flask db upgrade` (ver README para SQL de duplicados previo a `0002_integrity`). `0003_indexes` cambia índices de `folios`/`audit_logs` — crea los compuestos antes de dropear los simples porque el FK `folios.tipoCert_id` exige un índice. **El stamp es a la revisión que el esquema YA tiene**: DB creada con `init_db.py` (`create_all` con los modelos actuales, `alembic_version` vacía) falla en `0001_baseline` con `Table '…' already exists` → stamp a la última revisión reflejada por las tablas presentes (hoy `0009_estado_check_fechas`), no a `0001` (fallaría igual en `0004`). Ver README → "Síntoma Table '…' already exists".
 - Si `alembic_version` trae una revisión desconocida (cadena de migraciones ajena), `upgrade`/`check` fallan con `Can't locate revision`: fijarla a `0001_baseline` con `UPDATE alembic_version` y subir (ver README → "DB con cadena de migraciones ajena"). `db check` quedará con extras heredados inofensivos.
 - `/auth/logout` is POST-only (navbar renders a form with CSRF token); GET returns 405.
 - Rate limits: `RATELIMIT_STORAGE_URI` (default `memory://` para dev; compose inyecta `redis://redis:6379` para que los 4 workers compartan el contador). El cliente `redis` va en `requirements.txt`: Flask-Limiter construye el storage *eager* en `init_app` → sin el paquete la app no arranca (gunicorn exit 3). `RATELIMIT_SWALLOW_ERRORS=true` (fail-open si Redis cae). El límite solo cuenta peticiones que llegan al view: las rechazadas por CSRF global (400) no consumen cuota.
@@ -116,10 +121,15 @@ app/
 - Tolerancia al esquema (`app/services/backup.py`): el respaldo guarda `meta.esquema`; al restaurar se compara con el schema actual — columnas nuevas quedan fuera del INSERT (SQLAlchemy/DB aplican default o NULL), obsoletas se ignoran, y una NOT NULL sin default **bloquea** con `ErrorRespaldo`. Se vacían TODAS las tablas de `TABLAS_ORDEN` (no solo las del archivo) para evitar FK huérfanas, y se rechaza un respaldo sin usuarios (lockout). Respaldos viejos sin `meta.esquema` exigen `meta.alembic` == actual. Flujo en 2 pasos: `POST /backup/previsualizar` (analiza, guarda el JSON en `app/backup/staging.py` con token de sesión, 30 min) → `POST /backup/restaurar` (token de un solo uso).
 - Dumps SQL (copia de desastre): `scripts/dump_db.sh` / `scripts/restore_db.sh` corren `mariadb-dump` **dentro del contenedor `db`** (la app no lleva el cliente; el usuario `folios_app` no tiene `LOCK TABLES`/`SHOW VIEW`, se usa root con `MYSQL_PWD`). Salida a `backups/` (ignorado por git). Si la base tiene `alembic_version`, viaja en el dump → tras restaurar, `flask db upgrade`.
 - KPIs: `app/services/kpis.py::conteos_folios` es la única fuente de dashboard y reportes; `entregado`/`devuelto` excluyen nulos.
-- Timestamps: columnas `created_at`/`createAt`/`fecha` se guardan en UTC naive; se renderizan con el filtro `|localtime` (honra `TZ`, compose pone `America/Havana`). Los campos `fechaEntrega`/`fechaDevolucion` son `Date` de negocio y van en hora local.
+- Timestamps: columnas `created_at`/`createAt`/`fecha` se guardan en UTC naive; se renderizan con el filtro `|localtime` (honra `TZ`, compose pone `America/Santo_Domingo` por defecto). Los campos `fechaEntrega`/`fechaDevolucion` son `Date` de negocio y van en hora local.
 - Fechas en UI: siempre dd/mm/aaaa, independiente del locale del navegador. Los inputs de fecha son texto + **flatpickr** (CDN, `dateFormat: 'd/m/Y'`, init en `main.js`, clase `.flatpickr`); en forms WTForms usa `FechaLatinaField` (`app/form_fields.py`, acepta dd/mm/aaaa e ISO como fallback) y en filtros `parsear_fecha()` (`app/utils.py`). No reintroducir `<input type="date">`: su formato lo decide el locale del navegador.
 - DataTables **no** se sirve globalmente: `base.html` solo declara los bloques `datatables_css`/`datatables_js`; las páginas que usan `.data-table` o `dtConfig` los llenan con `{% include 'components/datatables_css.html' %}` / `datatables_js.html` (van juntos: assets + init con guard de colspan). Si una página nueva usa DataTables y olvida el include, la tabla queda sin inicializar (sin error en consola hasta el click).
 - `RecepcionForm` limita el rango a `MAX_FOLIOS_POR_RECEPCION` (10000) folios; el chequeo de solape se repite dentro del `try` de `recepcion/create`, bajo el `FOR UPDATE` de `_next_rango_id`, porque la validación del form corre antes del lock.
 - Escaneos: JPG en `SCANS_FOLDER` (env, default `<raíz>/scans`), montado en Docker como `./scans:/app/scans`. **Ownership**: si `scans/` no existe en el host, Docker la crea como root y `appuser` (UID 1000) no puede escribir → toda subida falla con "Error al guardar"; crear antes del primer arranque (`mkdir -p scans && chown 1000:1000 scans`). El único gate de nombre es `NOMBRE_RE` en `app/services/escaneos.py` (`^(\d{1,10})\.(jpg|jpeg)$`): `EscaneoForm.archivos` **no** lleva `FileAllowed` a propósito — un no-JPG no debe abortar el lote; los inválidos se reportan por archivo y no se escriben.
 - Tests PDF (`test_pdf_escape`, `test_exports_contenido::…pdf`) requieren pango/cairo: corren en Docker, no en un venv bare.
 - Tests: **un solo usuario autenticado por test**. El fixture `app` mantiene un app context activo y Flask lo reusa en cada request ⇒ `g._login_user` (caché de Flask-Login) se comparte entre test clients del mismo test: un segundo client ve al usuario del primero. En producción no aplica (context por request).
+- Importar digitado/nulos (`/folios/importar*`): plantilla `folio, anio, tipo` (`anio`/`tipo` opcionales por celda; se acepta también el formato viejo de solo `folio`, vía `leer_filas(..., opcionales=)`). Una fila que coincide con **más de un** folio es "Ambiguo" y no se marca — nunca se marcan todas las coincidencias de un número. El payload del confirm son **ids de folio**, no números.
+- Escaneos: además de `NOMBRE_RE`, el contenido debe empezar con la firma JPEG (`FF D8 FF`, `es_jpeg`); si no, `contenido_invalido` y no se escribe. Reemplazar un JPG existente se permite pero se reporta (`reemplazado`). El archivo sigue siendo `<año>/<número>.jpg`: dos tipos con el mismo número y año comparten archivo.
+- Reportes: el Excel se genera `write_only` + `yield_per` (neutralización de fórmulas celda a celda con `celda_segura`, no `neutralizar_formulas`); el PDF se niega por encima de `REPORTE_PDF_MAX_FILAS` (default 5000) y redirige con aviso.
+- `folios.estado` tiene CHECK `ck_folios_estado` (`ESTADOS_FOLIO` en `app/models/folio.py`: disponible/entregado/devuelto/perdido). `nulo`/`digitado`/`escaneado` son banderas, no estados. La migración 0009 aborta con mensaje si encuentra estados fuera de catálogo.
+- Login: con usuario inexistente se verifica igual contra `_hash_senuelo()` para no filtrar por timing qué usernames existen.

@@ -25,3 +25,8 @@ def test_indices_compuestos_reales_en_columnas(app):
     por_nombre = {i['name']: i for i in insp.get_indexes('folios')}
     assert por_nombre['idx_folios_anio_estado']['column_names'] == ['anioCert', 'estado', 'nulo']
     assert por_nombre['idx_folios_tipo_anio']['column_names'] == ['tipoCert_id', 'anioCert']
+
+
+def test_indices_fecha_entregas_devoluciones(app):
+    assert 'idx_entrega_fecha' in _indexes(db.engine, 'entrega_folios')
+    assert 'idx_devolucion_fecha' in _indexes(db.engine, 'devolucion_folios')

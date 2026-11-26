@@ -1,6 +1,10 @@
 from app.extensions import db
 from app.utils import utcnow
 
+# Únicos estados válidos de un folio (el CHECK de la DB los hace cumplir).
+# `nulo`, `digitado` y `escaneado` son banderas aparte, no estados.
+ESTADOS_FOLIO = ('disponible', 'entregado', 'devuelto', 'perdido')
+
 
 class Folio(db.Model):
     __tablename__ = 'folios'
@@ -13,6 +17,9 @@ class Folio(db.Model):
         db.UniqueConstraint('rangoId', 'folio', name='uq_folios_rangoId_folio'),
         db.UniqueConstraint('anioCert', 'tipoCert_id', 'folio',
                             name='uq_folios_anio_tipo_folio'),
+        db.CheckConstraint(
+            'estado IN (' + ', '.join(f"'{e}'" for e in ESTADOS_FOLIO) + ')',
+            name='ck_folios_estado'),
     )
 
     id = db.Column(db.Integer, primary_key=True)

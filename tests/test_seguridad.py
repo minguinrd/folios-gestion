@@ -118,3 +118,15 @@ def test_auditoria_filtros_cubren_eventos_sensibles(admin_client):
     text = admin_client.get('/auditoria/').get_data(as_text=True)
     for valor in ('BACKUP', 'RESTORE', 'permiso_usuarios', 'marca_config'):
         assert f'value="{valor}"' in text, f'falta {valor} en los filtros'
+
+
+def test_login_usuario_inexistente_igual_verifica_hash(client, monkeypatch):
+    """Usuario inexistente también paga el costo del hash (anti-enumeración por timing)."""
+    import app.auth as auth
+    llamadas = []
+    real = auth.check_password_hash
+    monkeypatch.setattr(auth, 'check_password_hash',
+                        lambda h, p: llamadas.append(h) or real(h, p))
+    resp = client.post('/auth/login', data={'username': 'no-existe', 'password': 'x' * 10})
+    assert resp.status_code == 200
+    assert llamadas == [auth._hash_senuelo()]

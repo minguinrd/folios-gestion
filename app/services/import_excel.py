@@ -49,11 +49,14 @@ def _validar_tamano_descomprimido(file_storage):
             f'El archivo ocupa demasiado al descomprimirse (máximo {mb} MB).')
 
 
-def leer_filas(file_storage, headers, max_filas):
+def leer_filas(file_storage, headers, max_filas, opcionales=()):
     """Devuelve las filas de datos como dicts con llave = encabezado.
 
     `headers` es la lista completa (en orden) que debe tener la fila 1:
-    TODAS las columnas son obligatorias y no puede sobrar ninguna. Lanza
+    TODAS las columnas son obligatorias y no puede sobrar ninguna.
+    `opcionales`: columnas extra que pueden venir a continuación, todas
+    juntas y en ese orden (plantilla nueva) o ninguna (plantilla vieja);
+    si faltan, sus llaves valen None en cada fila. Lanza
     ImportExcelError si los encabezados no coinciden, si la hoja no tiene
     datos o si supera `max_filas` filas. Las filas totalmente vacías se
     ignoran.
@@ -69,16 +72,20 @@ def leer_filas(file_storage, headers, max_filas):
     try:
         ws = wb.active
         esperados = [h.strip().lower() for h in headers]
+        completos = esperados + [h.strip().lower() for h in opcionales]
+        columnas = list(headers)
         filas = []
         for i, row in enumerate(ws.iter_rows(values_only=True)):
             if i == 0:
                 actual = [('' if c is None else str(c).strip().lower()) for c in row]
                 while actual and actual[-1] == '':
                     actual.pop()
-                if actual != esperados:
+                if opcionales and actual == completos:
+                    columnas = list(headers) + list(opcionales)
+                elif actual != esperados:
                     raise ImportExcelError(
                         'Encabezados incorrectos. Se esperaba exactamente: '
-                        + ', '.join(headers) + '.'
+                        + ', '.join(list(headers) + list(opcionales)) + '.'
                     )
                 continue
             if all(c is None or str(c).strip() == '' for c in row):
@@ -87,7 +94,9 @@ def leer_filas(file_storage, headers, max_filas):
                 raise ImportExcelError(
                     f'El archivo supera el máximo de {max_filas} filas.'
                 )
-            filas.append({h: v for h, v in zip(headers, row)})
+            fila = {h: None for h in opcionales}
+            fila.update({h: v for h, v in zip(columnas, row)})
+            filas.append(fila)
     finally:
         wb.close()
 

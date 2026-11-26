@@ -25,12 +25,14 @@
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-body p-4">
                 <p class="text-muted mb-3">
-                    El archivo debe tener exactamente esta columna en la fila 1:
-                    <code>folio</code>. Una fila por número de folio (máx. 5000
-                    filas). Cada número que coincida con la base de datos marca
-                    sus folios como <strong>{{ 'nulo' if modo == 'nulo' else 'digitado' }}</strong>. Un mismo número
-                    puede repetirse entre años/tipos: se marcan todas las
-                    coincidencias.
+                    Columnas en la fila 1: <code>folio</code>, <code>anio</code>,
+                    <code>tipo</code> (o solo <code>folio</code>, formato anterior).
+                    Una fila por folio (máx. 5000 filas). Cada fila que coincida con
+                    <strong>un único</strong> folio lo marca como
+                    <strong>{{ 'nulo' if modo == 'nulo' else 'digitado' }}</strong>.
+                    Un mismo número puede repetirse entre años/tipos: complete
+                    <code>anio</code> y <code>tipo</code> (nombre del tipo de
+                    certificado) para identificarlo; las filas ambiguas no se marcan.
                 </p>
                 <form method="POST" enctype="multipart/form-data" data-loading>
                     {{ form.hidden_tag() }}
@@ -67,6 +69,8 @@
                             <tr>
                                 <th style="width:60px">#</th>
                                 <th>Folio</th>
+                                <th>Año</th>
+                                <th>Tipo</th>
                                 <th>Coincidencias</th>
                                 <th>{{ 'Ya nulo' if modo == 'nulo' else 'Ya digitado' }}</th>
                                 <th>A marcar</th>
@@ -78,6 +82,8 @@
                             <tr>
                                 <td>{{ p.n }}</td>
                                 <td>{{ p.folio }}</td>
+                                <td>{{ p.anio if p.anio is not none else '—' }}</td>
+                                <td>{{ p.tipo or '—' }}</td>
                                 <td>{{ p.encontrados if p.encontrados is not none else '—' }}</td>
                                 <td>{{ p.ya_marcado if p.encontrados is not none else '—' }}</td>
                                 <td>{{ p.a_actualizar if p.encontrados is not none else '—' }}</td>

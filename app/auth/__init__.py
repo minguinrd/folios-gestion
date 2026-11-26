@@ -1,8 +1,11 @@
+import secrets
+from functools import lru_cache
 from urllib.parse import urljoin, urlparse
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request, session
 from flask_login import login_user, logout_user, login_required, current_user
 from sqlalchemy.exc import IntegrityError
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.extensions import db, limiter
 from app.models.usuario import Usuario
@@ -25,6 +28,16 @@ def _is_safe_next(target):
     )
 
 
+@lru_cache(maxsize=1)
+def _hash_senuelo():
+    """Hash fijo para igualar el tiempo del login con usuario inexistente.
+
+    Se genera con el método por defecto de werkzeug (el mismo de
+    set_password), así el costo coincide con el de un hash real.
+    """
+    return generate_password_hash(secrets.token_hex(16))
+
+
 @auth_bp.route('/login', methods=['GET', 'POST'])
 @limiter.limit("10/minute")
 def login():
@@ -34,6 +47,10 @@ def login():
     form = LoginForm()
     if form.validate_on_submit():
         user = Usuario.query.filter_by(username=form.username.data).first()
+        if user is None:
+            # Mismo costo de hash que un usuario real: sin esto un username
+            # inexistente responde mucho más rápido (enumeración por timing).
+            check_password_hash(_hash_senuelo(), form.password.data)
         if user and user.check_password(form.password.data):
             if user.activo:
                 login_user(user)

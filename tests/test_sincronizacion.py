@@ -468,3 +468,27 @@ def test_sync_manual_auditoria_sobrevive_teardown(client, admin, monkeypatch):
     db.session.remove()  # lo que hace el teardown en producción
     assert AuditLog.query.filter_by(tabla='google_sheets',
                                     accion='SYNC').count() == 1
+
+
+@pytest.fixture(autouse=True)
+def _latido_en_tmp(tmp_path, monkeypatch):
+    """tick() toca el archivo de latido: en tests, dentro de tmp_path."""
+    import run_worker
+    monkeypatch.setattr(run_worker, 'HEARTBEAT', str(tmp_path / 'latido'))
+
+
+def test_worker_tick_renueva_latido(app, tmp_path):
+    import os
+    import subprocess
+    import sys
+    import run_worker
+    ruta = tmp_path / 'latido'
+    run_worker.tick(app)
+    assert ruta.exists()
+    env = dict(os.environ, WORKER_HEARTBEAT=str(ruta))
+    ok = subprocess.run([sys.executable, 'healthcheck_worker.py', '600'], env=env)
+    assert ok.returncode == 0
+    os.utime(ruta, (0, 0))  # latido viejo
+    viejo = subprocess.run([sys.executable, 'healthcheck_worker.py', '600'],
+                           env=env, capture_output=True)
+    assert viejo.returncode == 1

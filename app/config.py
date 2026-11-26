@@ -65,6 +65,10 @@ class Config:
     # 32 MB: el respaldo JSON de backup/restaurar puede superar los 5 MB viejos.
     MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 32 * 1024 * 1024))
 
+    # Tope de filas del PDF de /reportes (WeasyPrint arma todo en memoria);
+    # por encima se pide filtrar o usar el Excel, que se genera en streaming.
+    REPORTE_PDF_MAX_FILAS = int(os.environ.get('REPORTE_PDF_MAX_FILAS', 5000))
+
     # Carpeta de folios escaneados: <SCANS_FOLDER>/<anio>/<numero>.jpg.
     # Se monta como volumen en docker-compose (sobrevive reinicios del contenedor).
     _PROYECTO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

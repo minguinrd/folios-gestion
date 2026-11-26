@@ -8,7 +8,7 @@ from app.models.entrega_folio import EntregaFolio
 from app.models.devolucion_folio import DevolucionFolio
 from app.models.tipo_certificado import TipoCertificado
 from app.services.kpis import conteos_folios
-from datetime import datetime
+from datetime import date, datetime
 
 dashboard_bp = Blueprint('dashboard', __name__, url_prefix='/dashboard')
 
@@ -77,7 +77,10 @@ def tendencia():
         mes = func.extract('month', columna)
         filas = db.session.query(
             mes, func.count(modelo.id)
-        ).filter(func.extract('year', columna) == anio).group_by(mes).all()
+        ).filter(
+            # Rango de fechas (no extract(year)): así el filtro puede usar índice.
+            columna >= date(anio, 1, 1), columna < date(anio + 1, 1, 1),
+        ).group_by(mes).all()
         serie = [0] * 12
         for m, n in filas:
             serie[int(m) - 1] = int(n)

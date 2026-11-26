@@ -8,6 +8,8 @@ class DevolucionFolio(db.Model):
         db.Index('idx_devolucion_folio_id', 'folio_id'),
         db.Index('idx_devolucion_centroId', 'centroId'),
         db.Index('idx_devolucion_userId', 'userId'),
+        # Tendencia mensual del dashboard: filtro por rango de fechas.
+        db.Index('idx_devolucion_fecha', 'fechaDevolucion'),
         db.UniqueConstraint('folio_id', name='uq_devolucion_folios_folio_id'),
     )
 

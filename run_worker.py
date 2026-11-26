@@ -26,9 +26,26 @@ CONFIGS = {
 TICK_MINUTOS = 1
 logger = logging.getLogger('sync_worker')
 
+# Latido para el healthcheck de compose: cada tick toca este archivo; si el
+# scheduler muere o se cuelga, su mtime envejece y el contenedor queda
+# "unhealthy" (ver healthcheck.py / docker-compose.yml).
+HEARTBEAT = os.environ.get('WORKER_HEARTBEAT', '/tmp/sync_worker_heartbeat')
+
+
+def latido(ruta=None):
+    """Actualiza el mtime del archivo de latido (nunca rompe el tick)."""
+    ruta = ruta or HEARTBEAT
+    try:
+        with open(ruta, 'a'):
+            pass
+        os.utime(ruta, None)
+    except OSError:
+        logger.warning('No se pudo escribir el latido en %s', ruta)
+
 
 def tick(app):
     """Un paso del worker: si la config lo dice, sincroniza y persiste estado."""
+    latido()
     with app.app_context():
         try:
             cfg = get_config()
@@ -66,6 +83,7 @@ def main():
         coalesce=True,            # ticks atrasados → uno solo
         misfire_grace_time=300,
     )
+    latido()
     logger.info('Worker de sincronización arrancado (tick cada %s min)', TICK_MINUTOS)
     scheduler.start()
 

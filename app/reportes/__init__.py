@@ -1,4 +1,5 @@
-from flask import Blueprint, render_template, request, make_response, jsonify
+from flask import (Blueprint, current_app, flash, jsonify, make_response,
+                   redirect, render_template, request, url_for)
 from flask_login import login_required
 from app.models.folio import Folio
 from app.models.entrega_folio import EntregaFolio
@@ -6,7 +7,7 @@ from app.models.devolucion_folio import DevolucionFolio
 from app.models.tipo_certificado import TipoCertificado
 from app.models.centro import Centro
 from sqlalchemy.orm import selectinload
-from app.services.excel import neutralizar_formulas
+from app.services.excel import celda_segura
 from app.services.kpis import conteos_folios
 from app.services.pdf import encabezado_pdf
 from markupsafe import escape
@@ -40,6 +41,13 @@ def _build_query(anio=None, tipo_id=None, centro_id=None, estado=None):
 def _get_stats(anio=None, tipo_id=None, centro_id=None, estado=None):
     """Misma base que la tabla: si el filtro cambia, las tarjetas cambian."""
     return conteos_folios(_build_query(anio, tipo_id, centro_id, estado))
+
+
+# Lote de filas por viaje a la DB en los exports (yield_per): la memoria del
+# worker queda acotada aunque el reporte tenga decenas de miles de folios.
+LOTE_EXPORT = 1000
+# Ancho fijo de columna del Excel (write_only no permite medir el contenido).
+ANCHO_MIN_COLUMNA = 12
 
 
 def _add_eager_loading(query):
@@ -170,6 +178,7 @@ def fila_reporte(f):
 def export_excel():
     from openpyxl import Workbook
     from openpyxl.styles import Font, Alignment, PatternFill
+    from openpyxl.utils import get_column_letter
 
     anio = request.args.get('anioCert', type=int)
     tipo_id = request.args.get('tipoCert', type=int)
@@ -178,34 +187,29 @@ def export_excel():
 
     query = _build_query(anio, tipo_id, centro_id, estado)
     query = _add_eager_loading(query)
-    folios = query.order_by(Folio.folio, Folio.id).all()
+    folios = query.order_by(Folio.folio, Folio.id).yield_per(LOTE_EXPORT)
 
-    wb = Workbook()
-    ws = wb.active
-    ws.title = f'Folios {anio or "Todos"}'
+    # write_only: openpyxl no guarda el árbol de celdas en memoria (un
+    # Workbook normal con 50k filas × 12 columnas pesa cientos de MB).
+    wb = Workbook(write_only=True)
+    ws = wb.create_sheet(f'Folios {anio or "Todos"}')
 
     headers = COLUMNAS_REPORTE
+    # Ancho fijo: en write_only no se puede medir después de escribir.
+    for i, header in enumerate(headers, 1):
+        ws.column_dimensions[get_column_letter(i)].width = \
+            max(len(header) + 4, ANCHO_MIN_COLUMNA)
 
     header_font = Font(bold=True, color='FFFFFF')
     header_fill = PatternFill(start_color='0D6EFD', end_color='0D6EFD', fill_type='solid')
     header_align = Alignment(horizontal='center')
+    ws.append([celda_segura(ws, h, font=header_font, fill=header_fill,
+                            alignment=header_align) for h in headers])
 
-    for col, header in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col, value=header)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = header_align
-
-    for row, f in enumerate(folios, 2):
-        for col, valor in enumerate(fila_reporte(f), 1):
-            ws.cell(row=row, column=col, value=valor)
-
-    for col in ws.columns:
-        max_length = max(len(str(cell.value or '')) for cell in col)
-        ws.column_dimensions[col[0].column_letter].width = max_length + 2
+    for f in folios:
+        ws.append([celda_segura(ws, valor) for valor in fila_reporte(f)])
 
     output = BytesIO()
-    neutralizar_formulas(wb)  # nunca escribir '=...' como fórmula (inyección al abrir)
     wb.save(output)
     output.seek(0)
 
@@ -226,6 +230,14 @@ def export_pdf():
     estado = request.args.get('estado')
 
     query = _build_query(anio, tipo_id, centro_id, estado)
+    # WeasyPrint arma todo el documento en memoria: decenas de miles de filas
+    # superan el timeout de gunicorn (120 s) y la RAM del worker.
+    maximo = current_app.config.get('REPORTE_PDF_MAX_FILAS', 5000)
+    total = query.count()
+    if total > maximo:
+        flash(f'El reporte tiene {total} folios y el PDF admite hasta {maximo}. '
+              'Aplique más filtros o descargue el Excel.', 'warning')
+        return redirect(url_for('reportes.index'))
     query = _add_eager_loading(query)
     folios = query.order_by(Folio.folio, Folio.id).all()
 

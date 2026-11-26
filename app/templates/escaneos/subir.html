@@ -66,8 +66,12 @@
                     marcado,
                     <strong>{{ reporte.sin_coincidencia }}</strong> sin
                     coincidencia,
-                    <strong>{{ reporte.invalidos }}</strong> nombre inválido,
+                    <strong>{{ reporte.invalidos }}</strong> inválido(s),
                     <strong>{{ reporte.errores }}</strong> error al guardar.
+                    {% if reporte.reemplazados %}
+                    <br><i class="fas fa-triangle-exclamation me-1"></i>
+                    <strong>{{ reporte.reemplazados }}</strong> escaneo(s) existente(s) reemplazado(s).
+                    {% endif %}
                 </div>
                 <div class="table-responsive">
                     <table class="table table-sm align-middle">
@@ -93,8 +97,12 @@
                                         {{ {'marcado': 'Marcado',
                                             'sin_coincidencia': 'Sin coincidencia',
                                             'nombre_invalido': 'Nombre inválido',
+                                            'contenido_invalido': 'No es un JPG',
                                             'error_guardar': 'Error al guardar'}[r.estado] }}
                                     </span>
+                                    {% if r.reemplazado %}
+                                    <span class="badge bg-info text-dark">Reemplazó el anterior</span>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% endfor %}

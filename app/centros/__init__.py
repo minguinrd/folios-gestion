@@ -71,13 +71,12 @@ def _datos_del_centro(centro_id):
     entregas = EntregaFolio.query.options(*_eager_entrega())\
         .filter_by(centroId=centro_id).order_by(EntregaFolio.fechaEntrega.desc()).all()
 
-    folios_devueltos_ids = set(d.folio_id for d in
-        DevolucionFolio.query.filter_by(centroId=centro_id).all())
-
-    pendientes = [e for e in entregas if e.folio_id not in folios_devueltos_ids]
-
     devueltos = DevolucionFolio.query.options(*_eager_devolucion())\
         .filter_by(centroId=centro_id).order_by(DevolucionFolio.fechaDevolucion.desc()).all()
+
+    # Misma consulta de devoluciones para ambos usos (antes se pedía dos veces).
+    folios_devueltos_ids = {d.folio_id for d in devueltos}
+    pendientes = [e for e in entregas if e.folio_id not in folios_devueltos_ids]
 
     return entregas, pendientes, devueltos
 

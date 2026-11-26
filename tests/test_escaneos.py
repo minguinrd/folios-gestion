@@ -9,6 +9,7 @@ from werkzeug.datastructures import FileStorage
 from app.config import Config
 from app.extensions import db
 from app.models.audit_log import AuditLog
+from app.models.folio import Folio
 from app.services.escaneos import guardar_y_matchear, validar_carpeta
 from app.services.permisos import PERMISOS, puede
 from tests.conftest import make_folio, make_user
@@ -39,8 +40,12 @@ def scans_dir(app, tmp_path):
     return path
 
 
-def jpg(nombre, data=b'JPEGDATA'):
-    return FileStorage(stream=BytesIO(data), filename=nombre)
+SOI = b'\xff\xd8\xff'  # firma JPEG: los helpers la anteponen al contenido
+
+
+def jpg(nombre, data=b'JPEGDATA', crudo=False):
+    return FileStorage(stream=BytesIO(data if crudo else SOI + data),
+                       filename=nombre)
 
 
 def test_servicio_guarda_y_marca(app, tipo, scans_dir):
@@ -52,7 +57,7 @@ def test_servicio_guarda_y_marca(app, tipo, scans_dir):
     assert reporte['resultados'][0]['estado'] == 'marcado'
     assert reporte['resultados'][0]['folios'] == 1
     assert folio.escaneado is True
-    assert (scans_dir / '2026' / '1000.jpg').read_bytes() == b'JPEGDATA'
+    assert (scans_dir / '2026' / '1000.jpg').read_bytes() == SOI + b'JPEGDATA'
 
 
 def test_servicio_marca_todos_los_tipos(app, tipo, scans_dir):
@@ -115,7 +120,7 @@ def test_servicio_sobrescribe(app, scans_dir):
     with app.test_request_context():
         guardar_y_matchear([jpg('1000.jpg', b'UNO')], 2026, 1)
         guardar_y_matchear([jpg('1000.jpg', b'DOS')], 2026, 1)
-    assert (scans_dir / '2026' / '1000.jpg').read_bytes() == b'DOS'
+    assert (scans_dir / '2026' / '1000.jpg').read_bytes() == SOI + b'DOS'
 
 
 def test_servicio_anio_distinto_no_matchea(app, tipo, scans_dir):
@@ -294,7 +299,8 @@ def post_subir(client, anio, archivos):
     """archivos: lista de (nombre, contenido_bytes)."""
     data = {
         'anio': anio,
-        'archivos': [(BytesIO(contenido), nombre) for nombre, contenido in archivos],
+        'archivos': [(BytesIO(SOI + contenido), nombre)
+                     for nombre, contenido in archivos],
     }
     return client.post('/escaneos/subir', data=data,
                        content_type='multipart/form-data')
@@ -351,7 +357,7 @@ def test_subir_archivo_repetido_en_lote(admin_client, folio, scans_dir):
                       [('1000.jpg', b'UNO'), ('1000.jpg', b'DOS')])
     assert resp.status_code == 200
     assert folio.escaneado is True
-    assert (scans_dir / '2026' / '1000.jpg').read_bytes() == b'DOS'
+    assert (scans_dir / '2026' / '1000.jpg').read_bytes() == SOI + b'DOS'
 
 
 def test_subir_lote_mixto(admin_client, folio, scans_dir):
@@ -380,7 +386,31 @@ def test_subir_lote_mixto_con_png(admin_client, folio, scans_dir):
     assert resp.status_code == 200
     text = resp.get_data(as_text=True)
     assert folio.escaneado is True, 'un no-JPG no aborta el lote'
-    assert (scans_dir / '2026' / '1000.jpg').read_bytes() == b'OK'
+    assert (scans_dir / '2026' / '1000.jpg').read_bytes() == SOI + b'OK'
     assert not (scans_dir / '2026' / 'escaneo.png').exists()
     assert not (scans_dir / '2026' / 'escaneo.jpg').exists()
     assert 'Nombre inválido' in text
+
+
+def test_contenido_no_jpeg_rechazado_y_no_se_escribe(app, tipo, scans_dir):
+    folio = make_folio(tipo, anio=2026, numero=1000)
+    db.session.commit()
+    with app.test_request_context():
+        reporte = guardar_y_matchear(
+            [jpg('1000.jpg', b'\x89PNG\r\n', crudo=True)], 2026, 1)
+    assert reporte['invalidos'] == 1
+    assert reporte['resultados'][0]['estado'] == 'contenido_invalido'
+    assert not (scans_dir / '2026' / '1000.jpg').exists()
+    assert db.session.get(Folio, folio.id).escaneado is False
+
+
+def test_reemplazo_se_reporta(app, tipo, scans_dir):
+    make_folio(tipo, anio=2026, numero=1000)
+    db.session.commit()
+    with app.test_request_context():
+        primero = guardar_y_matchear([jpg('1000.jpg', b'UNO')], 2026, 1)
+        segundo = guardar_y_matchear([jpg('1000.jpg', b'DOS')], 2026, 1)
+    assert primero['reemplazados'] == 0
+    assert primero['resultados'][0]['reemplazado'] is False
+    assert segundo['reemplazados'] == 1
+    assert segundo['resultados'][0]['reemplazado'] is True

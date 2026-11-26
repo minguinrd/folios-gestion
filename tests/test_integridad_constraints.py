@@ -108,3 +108,13 @@ def test_devolucion_duplicada_concurrente_recupera_sin_500(auth_client, app, fol
     assert resp.status_code == 200, f'esperaba 200 con flash, llegó {resp.status_code}'
     assert DevolucionFolio.query.count() == 1, 'creó una segunda devolución duplicada'
     assert 'duplicad' in resp.get_data(as_text=True).lower(), 'sin mensaje de duplicado'
+
+
+def test_folio_estado_fuera_de_catalogo_rechazado(app, tipo):
+    """CHECK ck_folios_estado: solo disponible/entregado/devuelto/perdido."""
+    import pytest
+    from sqlalchemy.exc import IntegrityError
+    from tests.conftest import make_folio
+    with pytest.raises(IntegrityError):
+        make_folio(tipo, numero=4242, estado='nulo')
+    db.session.rollback()

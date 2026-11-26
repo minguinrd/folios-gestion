@@ -9,15 +9,15 @@ from app.extensions import db
 from app.models.audit_log import AuditLog
 from app.models.folio import Folio
 from tests.conftest import make_folio
-from tests.test_importar_folios import HEADERS, make_xlsx
+from tests.test_importar_folios import HEADERS, HEADERS_COMPLETOS, make_xlsx
 
 Y = 2026
 
 
-def post_importar_nulos(client, rows, nombre='nulos.xlsx'):
+def post_importar_nulos(client, rows, nombre='nulos.xlsx', headers=HEADERS):
     return client.post(
         '/folios/importar-nulos',
-        data={'archivo': (make_xlsx(HEADERS, rows), nombre)},
+        data={'archivo': (make_xlsx(headers, rows), nombre)},
         content_type='multipart/form-data',
     )
 
@@ -82,14 +82,16 @@ def test_preview_repetido_entre_filas(admin_client, tipo, folio):
 
 
 def test_preview_numero_matchea_varios_folios(admin_client, tipo):
-    """Mismo número entre año/tipo: el preview muestra todas las coincidencias."""
+    """Mismo número entre año/tipo sin año/tipo en la fila: ambiguo, no se marca."""
     make_folio(tipo, anio=Y, numero=1000, rangoId=1)
     make_folio(tipo, anio=Y - 1, numero=1000, rangoId=2)
     db.session.commit()
     resp = post_importar_nulos(admin_client, [[1000]])
     text = resp.get_data(as_text=True)
-    assert '<strong>1</strong> folio(s) válido(s) de <strong>1</strong>' in text
+    assert '<strong>0</strong> folio(s) válido(s) de <strong>1</strong>' in text
     assert '<td>2</td>' in text, 'coincidencias = 2'
+    assert 'Ambiguo' in text
+    assert 'Confirmar importación' not in text
 
 
 def test_preview_ya_nulo(admin_client, tipo):
@@ -102,7 +104,7 @@ def test_preview_ya_nulo(admin_client, tipo):
 
 
 def test_confirm_marca_nulo(admin_client, tipo, folio):
-    resp = confirmar_nulos(admin_client, [1000])
+    resp = confirmar_nulos(admin_client, [folio.id])
 
     assert resp.status_code == 200
     assert db.session.get(Folio, folio.id).nulo is True
@@ -113,7 +115,7 @@ def test_confirm_marca_nulo(admin_client, tipo, folio):
 
 
 def test_confirm_no_toca_digitado_ni_estado(admin_client, folio):
-    resp = confirmar_nulos(admin_client, [1000])
+    resp = confirmar_nulos(admin_client, [folio.id])
 
     assert resp.status_code == 200
     actualizado = db.session.get(Folio, folio.id)
@@ -123,12 +125,12 @@ def test_confirm_no_toca_digitado_ni_estado(admin_client, folio):
     assert actualizado.estado == 'disponible'
 
 
-def test_confirm_marca_todas_las_coincidencias(admin_client, tipo):
+def test_confirm_marca_ids_del_payload(admin_client, tipo):
     f1 = make_folio(tipo, anio=Y, numero=1000, rangoId=1)
     f2 = make_folio(tipo, anio=Y - 1, numero=1000, rangoId=2)
     db.session.commit()
 
-    resp = confirmar_nulos(admin_client, [1000])
+    resp = confirmar_nulos(admin_client, [f1.id, f2.id])
 
     assert '2 folios marcados como nulo' in resp.get_data(as_text=True)
     assert db.session.get(Folio, f1.id).nulo is True
@@ -139,7 +141,7 @@ def test_confirm_omite_ya_nulo(admin_client, folio):
     folio.nulo = True
     db.session.commit()
 
-    resp = confirmar_nulos(admin_client, [1000])
+    resp = confirmar_nulos(admin_client, [folio.id])
 
     assert 'todos ya estaban nulos' in resp.get_data(as_text=True)
     assert AuditLog.query.filter_by(tabla='folios').count() == 0, \
@@ -147,7 +149,7 @@ def test_confirm_omite_ya_nulo(admin_client, folio):
 
 
 def test_confirm_numero_inexistente_omite(admin_client):
-    resp = confirmar_nulos(admin_client, [9999])
+    resp = confirmar_nulos(admin_client, [999999])
     assert resp.status_code == 200
     assert 'todos ya estaban nulos' in resp.get_data(as_text=True)
 
@@ -186,3 +188,16 @@ def test_headers_incorrectos_rechazados(admin_client):
     )
     text = resp.get_data(as_text=True)
     assert 'Encabezados incorrectos' in text
+
+
+def test_nulos_con_anio_marca_solo_ese_folio(admin_client, tipo):
+    """Regresión: '1000' con año anula solo ese folio, no los de otros años."""
+    f1 = make_folio(tipo, anio=Y, numero=1000, rangoId=1)
+    f2 = make_folio(tipo, anio=Y - 1, numero=1000, rangoId=2)
+    db.session.commit()
+    text = post_importar_nulos(admin_client, [[1000, Y, None]],
+                               headers=HEADERS_COMPLETOS).get_data(as_text=True)
+    assert f'value="[{f1.id}]"' in text
+    confirmar_nulos(admin_client, [f1.id])
+    assert db.session.get(Folio, f1.id).nulo is True
+    assert db.session.get(Folio, f2.id).nulo is False

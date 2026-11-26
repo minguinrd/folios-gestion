@@ -47,6 +47,14 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+    # El worker toca un archivo de latido en cada tick (1 min); sin latido
+    # reciente el scheduler murió/se colgó y el contenedor queda unhealthy.
+    healthcheck:
+      test: ["CMD", "python", "healthcheck_worker.py", "600"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   db:
     image: mariadb:11.4

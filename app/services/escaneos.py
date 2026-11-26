@@ -23,7 +23,22 @@ NOMBRE_RE = re.compile(r'^(\d{1,10})\.(jpg|jpeg)$', re.IGNORECASE)
 MARCADO = 'marcado'
 SIN_COINCIDENCIA = 'sin_coincidencia'
 NOMBRE_INVALIDO = 'nombre_invalido'
+CONTENIDO_INVALIDO = 'contenido_invalido'
 ERROR_GUARDAR = 'error_guardar'
+
+# Todo JPEG/JFIF/EXIF empieza con el marcador SOI FF D8 seguido de otro FF.
+# El nombre solo no basta: un PNG/PDF/HTML renombrado a .jpg se guardaría.
+FIRMA_JPEG = b'\xff\xd8\xff'
+
+
+def es_jpeg(archivo):
+    """True si el FileStorage empieza con la firma JPEG (deja el stream en 0)."""
+    stream = archivo.stream
+    try:
+        cabecera = stream.read(len(FIRMA_JPEG))
+    finally:
+        stream.seek(0)
+    return cabecera == FIRMA_JPEG
 
 
 def guardar_y_matchear(archivos, anio, user_id):
@@ -32,12 +47,13 @@ def guardar_y_matchear(archivos, anio, user_id):
     `archivos`: lista de FileStorage (MultipleFileField).
     `anio`: año del selector del form (int) — manda sobre cualquier otra fecha.
     Devuelve el reporte:
-      {'resultados': [{'nombre', 'numero', 'estado', 'folios'}],
-       'marcados', 'sin_coincidencia', 'invalidos', 'errores'}
+      {'resultados': [{'nombre', 'numero', 'estado', 'folios', 'reemplazado'}],
+       'marcados', 'sin_coincidencia', 'invalidos', 'errores', 'reemplazados'}
+    `invalidos` cuenta nombre inválido y contenido que no es JPEG.
     """
     carpeta = Path(current_app.config['SCANS_FOLDER']) / str(anio)
     reporte = {'resultados': [], 'marcados': 0, 'sin_coincidencia': 0,
-               'invalidos': 0, 'errores': 0}
+               'invalidos': 0, 'errores': 0, 'reemplazados': 0}
 
     for archivo in archivos:
         nombre = archivo.filename or ''
@@ -50,9 +66,20 @@ def guardar_y_matchear(archivos, anio, user_id):
             continue
 
         numero = int(match.group(1))
+        if not es_jpeg(archivo):
+            reporte['resultados'].append(
+                {'nombre': nombre, 'numero': numero,
+                 'estado': CONTENIDO_INVALIDO, 'folios': 0})
+            reporte['invalidos'] += 1
+            continue
+
+        destino = carpeta / f'{numero}.jpg'
+        # Reemplazar un escaneo previo es válido (re-escaneo), pero no debe
+        # pasar en silencio: se reporta por archivo.
+        reemplazado = destino.exists()
         try:
             carpeta.mkdir(parents=True, exist_ok=True)
-            archivo.save(carpeta / f'{numero}.jpg')
+            archivo.save(destino)
         except OSError:
             reporte['resultados'].append(
                 {'nombre': nombre, 'numero': numero, 'estado': ERROR_GUARDAR,
@@ -73,9 +100,11 @@ def guardar_y_matchear(archivos, anio, user_id):
         else:
             estado = SIN_COINCIDENCIA
             reporte['sin_coincidencia'] += 1
+        if reemplazado:
+            reporte['reemplazados'] += 1
         reporte['resultados'].append(
             {'nombre': nombre, 'numero': numero, 'estado': estado,
-             'folios': len(folios)})
+             'folios': len(folios), 'reemplazado': reemplazado})
 
     return reporte
 
