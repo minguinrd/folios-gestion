@@ -84,7 +84,7 @@ def test_entregas_create_fecha_futura_rechazada(
     db.session.commit()
 
     resp = auth_client.post('/entregas/create', data={
-        'folio_ids': [folio.id], 'fechaEntrega': ddmmaa(MANANA),
+        'folio_ids': [folio.id], 'fechaEntrega': ddmmaa(MANANA), 'recibidoPor': 'Ana Pérez',
         'centroId': centro.id,
     }, follow_redirects=True)
 
@@ -102,7 +102,7 @@ def test_entregas_create_fecha_hoy_aceptada(
     db.session.commit()
 
     resp = auth_client.post('/entregas/create', data={
-        'folio_ids': [folio.id], 'fechaEntrega': ddmmaa(HOY),
+        'folio_ids': [folio.id], 'fechaEntrega': ddmmaa(HOY), 'recibidoPor': 'Ana Pérez',
         'centroId': centro.id,
     }, follow_redirects=True)
 

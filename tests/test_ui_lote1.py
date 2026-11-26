@@ -48,8 +48,8 @@ def test_entregas_indice_vacio_colspan_sin_celdas_extra(app):
     client.post('/auth/login', data={'username': 'lectura', 'password': 'pass12345'})
 
     body = _fila_vacia(client, '/entregas/', 'No hay entregas registradas')
-    assert '<td class="text-center text-muted py-4" colspan="5">' in body, \
-        'sin permiso de edición hay 5 columnas: el colspan debe ser 5'
+    assert '<td class="text-center text-muted py-4" colspan="6">' in body, \
+        'sin permiso de edición hay 6 columnas: el colspan debe ser 6'
     assert 'padding:0;width:0' not in body, 'celdas fantasma en la fila vacía'
 
 

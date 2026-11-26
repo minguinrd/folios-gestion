@@ -302,14 +302,15 @@ def liberar_en_blanco(*, folio_ids, actor, log_audit):
 
 def crear_movimiento(*, modelo, fecha_field, folio_ids, fecha, centro_id, user,
                      estado_origen, estado_destino, excluir_nulos, tabla_audit,
-                     log_audit, actor=None):
+                     log_audit, actor=None, extra=None):
     """Registra un lote de entregas o devoluciones en una sola transacción.
 
     Devuelve (creados, omitidos). Un folio se omite si otra operación ya cambió
     su estado entre la validación del form y este bucle; el llamador lo avisa.
 
     `user` es el responsable del registro (userId); `actor` quien ejecuta la
-    operación y aparece en audit_logs (por defecto, el mismo).
+    operación y aparece en audit_logs (por defecto, el mismo). `extra`:
+    columnas adicionales comunes a todo el lote (p. ej. recibidoPor).
     """
     # IDs repetidos en el POST: el segundo encuentro vería el estado ya
     # mutado y contaría un "omitido" inexistente en el flash.
@@ -326,6 +327,7 @@ def crear_movimiento(*, modelo, fecha_field, folio_ids, fecha, centro_id, user,
             **{fecha_field: fecha},
             centroId=centro_id,
             userId=user.id,
+            **(extra or {}),
         )
         folio.estado = estado_destino
         db.session.add(registro)

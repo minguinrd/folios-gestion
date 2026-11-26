@@ -155,9 +155,11 @@ def test_entrega_sugerido_rango_y_guardado(pagina, base_url):
 
     # flatpickr deja el input en solo lectura: la fecha se fija con su API
     pagina.evaluate("document.querySelector('#fechaEntrega')._flatpickr.setDate('20/11/2026', true, 'd/m/Y')")
+    pagina.fill('#recibidoPor', 'Ana Pérez')
     pagina.click('input[type=submit][value^="Registrar"]')
     pagina.wait_for_url(re.compile(r'/entregas/$'))
     assert '10 entregas registradas' in pagina.content()
+    assert 'Ana Pérez' in pagina.content()
     assert 'Mostrando 1–' in pagina.content()
 
 

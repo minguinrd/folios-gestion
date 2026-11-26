@@ -18,6 +18,9 @@ class EntregaFolio(db.Model):
     fechaEntrega = db.Column(db.Date, nullable=False)
     centroId = db.Column(db.Integer, db.ForeignKey('centros.id'), nullable=False)
     userId = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    # Persona que recibe los folios en el centro. NULL en entregas previas a
+    # la columna y en las importadas desde Excel.
+    recibidoPor = db.Column(db.String(120), nullable=True)
     created_at = db.Column(db.DateTime, default=utcnow)
     updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
@@ -32,6 +35,7 @@ class EntregaFolio(db.Model):
             'fechaEntrega': self.fechaEntrega.isoformat() if self.fechaEntrega else None,
             'centroId': self.centroId,
             'centro_nombre': self.centro.name if self.centro else None,
+            'recibidoPor': self.recibidoPor,
             'userId': self.userId,
             'usuario_nombre': self.usuario.username if self.usuario else None,
         }

@@ -75,7 +75,7 @@ def test_entrega_duplicada_concurrente_recupera_sin_500(auth_client, app, tipo, 
         '/entregas/create',
         data={
             'folio_ids': [folio.id],
-            'fechaEntrega': '2026-09-28',
+            'fechaEntrega': '2026-09-28', 'recibidoPor': 'Ana Pérez',
             'centroId': centro.id,
         },
         follow_redirects=True,

@@ -121,6 +121,7 @@ def create():
                 excluir_nulos=True,
                 tabla_audit='entrega_folios',
                 log_audit=log_audit,
+                extra={'recibidoPor': form.recibidoPor.data},
             )
             db.session.commit()
         except IntegrityError:
@@ -294,6 +295,7 @@ def edit(id):
         form.folio_id.data = entrega.folio_id
         form.fechaEntrega.data = entrega.fechaEntrega
         form.centroId.data = entrega.centroId
+        form.recibidoPor.data = entrega.recibidoPor
         if quiere_json():
             return jsonify(ok=True, campos_html=render_template(
                 'entregas/_form.html', form=form, entrega=entrega))
@@ -321,6 +323,7 @@ def edit(id):
         try:
             entrega.fechaEntrega = form.fechaEntrega.data
             entrega.centroId = form.centroId.data
+            entrega.recibidoPor = form.recibidoPor.data
 
             log_audit(current_user.id, 'UPDATE', 'entrega_folios', entrega.id, datos_anteriores, entrega.to_dict())
             db.session.commit()

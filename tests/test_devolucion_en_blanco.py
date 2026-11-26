@@ -106,7 +106,7 @@ def test_folio_liberado_puede_reasignarse_a_otro_centro(
     resp = auth_client.post('/entregas/create', data={
         'centroId': otro.id,
         'folio_ids': [folio_entregado.id],
-        'fechaEntrega': '2026-09-30',
+        'fechaEntrega': '2026-09-30', 'recibidoPor': 'Ana Pérez',
     }, follow_redirects=True)
 
     assert resp.status_code == 200
@@ -133,7 +133,7 @@ def test_folio_liberado_reasignado_se_puede_devolver_normal(
     auth_client.post('/entregas/create', data={
         'centroId': otro.id,
         'folio_ids': [folio_entregado.id],
-        'fechaEntrega': '2026-09-30',
+        'fechaEntrega': '2026-09-30', 'recibidoPor': 'Ana Pérez',
     }, follow_redirects=True)
 
     resp = auth_client.post('/devoluciones/create', data={

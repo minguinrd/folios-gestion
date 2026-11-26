@@ -51,7 +51,8 @@ def test_create_entrega_sigue_funcionando(auth_client, app, tipo, centro):
 
     resp = auth_client.post(
         '/entregas/create',
-        data={'folio_ids': [folio.id], 'fechaEntrega': '2026-09-28', 'centroId': centro.id},
+        data={'folio_ids': [folio.id], 'fechaEntrega': '2026-09-28', 'centroId': centro.id,
+              'recibidoPor': 'Ana Pérez'},
         follow_redirects=True,
     )
     assert resp.status_code == 200
@@ -65,7 +66,8 @@ def test_create_entrega_rechaza_folio_no_disponible(auth_client, app, tipo, cent
 
     resp = auth_client.post(
         '/entregas/create',
-        data={'folio_ids': [folio.id], 'fechaEntrega': '2026-09-28', 'centroId': centro.id},
+        data={'folio_ids': [folio.id], 'fechaEntrega': '2026-09-28', 'centroId': centro.id,
+              'recibidoPor': 'Ana Pérez'},
         follow_redirects=True,
     )
     assert resp.status_code == 200

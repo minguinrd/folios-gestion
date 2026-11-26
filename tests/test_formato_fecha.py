@@ -137,7 +137,7 @@ class TestFormulariosFechaLatina:
         folio = make_folio(tipo, anio=2026, numero=1500)
         db.session.commit()
         resp = auth_client.post('/entregas/create', data={
-            'folio_ids': [folio.id], 'fechaEntrega': '28/09/2026',
+            'folio_ids': [folio.id], 'fechaEntrega': '28/09/2026', 'recibidoPor': 'Ana Pérez',
             'centroId': centro.id,
         }, follow_redirects=True)
         assert resp.status_code == 200
