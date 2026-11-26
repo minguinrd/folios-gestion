@@ -15,7 +15,7 @@ from app.models.tipo_certificado import TipoCertificado
 from app.centros.forms import CentroForm, ImportarCentroForm
 from app.services import import_excel
 from app.services.audit import log_audit
-from app.services.pdf import encabezado_pdf, logo_pdf
+from app.services.pdf import encabezado_pdf, logo_pdf, textos_institucionales
 from app.services.queries import get_or_404
 from app.services.sugeridos import parametros as parametros_sugeridos, sugerencias_centro
 from app.services.excel import neutralizar_formulas
@@ -741,6 +741,7 @@ def export_pdf(id):
                      (VISTAS_DETALLE if vista is None else (vista,)))
 
     logo = logo_pdf()
+    institucion, departamento = textos_institucionales()
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -762,8 +763,8 @@ def export_pdf(id):
     </head>
     <body>
         {logo}
-        <h1>Dirección Provincial de Salud Santiago 1</h1>
-        <h2>Departamento de Bioestadistica</h2>
+        <h1>{institucion}</h1>
+        <h2>{departamento}</h2>
         <h3>Detalle del Centro: {escape(centro.name)}</h3>
         <p style="color:#666; font-size:10px; text-align:right;">Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')}</p>
 

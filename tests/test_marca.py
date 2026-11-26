@@ -166,3 +166,76 @@ def test_logo_con_mime_no_confiable_se_serve_descargable(app):
     assert resp.status_code == 200
     assert resp.content_type != 'image/svg+xml', 'no debe servirse SVG ejecutable'
     assert resp.headers.get('Content-Disposition') == 'attachment'
+
+
+# --- Institución y departamento configurables ---
+
+
+def test_institucion_y_departamento_por_defecto(client, app):
+    html = client.get('/auth/login').get_data(as_text=True)
+    assert 'Dirección Provincial de Salud Santiago 1' in html
+    assert 'Departamento de Bioestadística' in html
+    pdf = encabezado_pdf('T')
+    assert '<h1>Dirección Provincial de Salud Santiago 1</h1>' in pdf
+    assert '<h2>Departamento de Bioestadística</h2>' in pdf, 'con tilde (antes "Bioestadistica")'
+
+
+def test_guardar_institucion_cambia_navbar_login_y_pdf(admin_client, client, app):
+    resp = _post_marca(admin_client, institucion='Hospital Regional Norte',
+                       departamento='Unidad de Estadística')
+    assert resp.status_code == 302
+    cfg = get_marca()
+    assert (cfg.institucion, cfg.departamento) == ('Hospital Regional Norte', 'Unidad de Estadística')
+
+    dash = admin_client.get('/dashboard/').get_data(as_text=True)
+    assert 'Hospital Regional Norte' in dash, 'barra superior'
+    assert 'Santiago 1' not in dash
+    pdf = encabezado_pdf('T')
+    assert '<h1>Hospital Regional Norte</h1>' in pdf
+    assert '<h2>Unidad de Estadística</h2>' in pdf
+    form = admin_client.get('/marca/').get_data(as_text=True)
+    assert 'value="Hospital Regional Norte"' in form
+
+
+def test_login_muestra_institucion_configurada(app, client):
+    cfg = get_marca()
+    cfg.institucion = 'Hospital Regional Norte'
+    db.session.commit()
+    html = client.get('/auth/login').get_data(as_text=True)
+    assert 'Hospital Regional Norte' in html
+    assert 'Santiago 1' not in html
+
+
+def test_institucion_vacia_vuelve_al_defecto(admin_client, app):
+    _post_marca(admin_client, institucion='   ', departamento='')
+    assert '<h1>Dirección Provincial de Salud Santiago 1</h1>' in encabezado_pdf('T')
+    assert 'Dirección Provincial de Salud Santiago 1' in admin_client.get('/dashboard/').get_data(as_text=True)
+
+
+def test_institucion_escapada_en_pdf(app):
+    cfg = get_marca()
+    cfg.institucion = '<script>x</script> & Cía'
+    db.session.commit()
+    pdf = encabezado_pdf('T')
+    assert '<script>' not in pdf
+    assert '&lt;script&gt;x&lt;/script&gt; &amp; Cía' in pdf
+
+
+def test_pdf_detalle_centro_usa_institucion(auth_client, app, centro, monkeypatch):
+    import weasyprint
+    capturado = {}
+
+    class HTMLFalso:
+        def __init__(self, string):
+            capturado['html'] = string
+
+        def write_pdf(self):
+            return b'%PDF-falso'
+
+    monkeypatch.setattr(weasyprint, 'HTML', HTMLFalso)
+    cfg = get_marca()
+    cfg.institucion = 'Hospital Regional Norte'
+    db.session.commit()
+    assert auth_client.get(f'/centros/{centro.id}/export/pdf').status_code == 200
+    assert '<h1>Hospital Regional Norte</h1>' in capturado['html']
+    assert 'Santiago 1' not in capturado['html']

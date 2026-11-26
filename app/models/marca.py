@@ -1,4 +1,4 @@
-"""Marca visible de la aplicación (nombre, subtítulo, logo y favicon)."""
+"""Marca visible de la aplicación (nombre, subtítulo, institución, logo y favicon)."""
 
 from sqlalchemy.dialects import mysql
 
@@ -8,10 +8,16 @@ from app.utils import utcnow
 NOMBRE_DEFECTO = 'Gestión de Folios'
 SUFIJO_DEFECTO = 'D1 Santiago'
 SUBTITULO_DEFECTO = 'Bioestadística D1'
+# Textos institucionales: barra superior, login/registro y encabezado de PDF.
+# Vacío = estos valores (nunca se muestran en blanco).
+INSTITUCION_DEFECTO = 'Dirección Provincial de Salud Santiago 1'
+DEPARTAMENTO_DEFECTO = 'Departamento de Bioestadística'
 
 NOMBRE_MAX = 50
 SUFIJO_MAX = 50
 SUBTITULO_MAX = 80
+INSTITUCION_MAX = 120
+DEPARTAMENTO_MAX = 120
 IMAGEN_MAX_BYTES = 512 * 1024  # 512 KB por imagen
 
 # Extensión del archivo → MIME con el que se sirve la imagen.
@@ -42,6 +48,8 @@ class MarcaConfig(db.Model):
     nombre = db.Column(db.String(NOMBRE_MAX), nullable=False, default=NOMBRE_DEFECTO)
     titulo_sufijo = db.Column(db.String(SUFIJO_MAX), default=SUFIJO_DEFECTO)
     subtitulo = db.Column(db.String(SUBTITULO_MAX), default=SUBTITULO_DEFECTO)
+    institucion = db.Column(db.String(INSTITUCION_MAX))
+    departamento = db.Column(db.String(DEPARTAMENTO_MAX))
     logo = db.Column(_IMAGEN)
     logo_mime = db.Column(db.String(50))
     favicon = db.Column(_IMAGEN)
@@ -82,6 +90,8 @@ def marca_template_dict():
         'nombre': NOMBRE_DEFECTO,
         'sufijo': SUFIJO_DEFECTO,
         'subtitulo': SUBTITULO_DEFECTO,
+        'institucion': INSTITUCION_DEFECTO,
+        'departamento': DEPARTAMENTO_DEFECTO,
         'tiene_logo': False,
         'tiene_favicon': False,
         'logo_mime': None,
@@ -95,6 +105,8 @@ def marca_template_dict():
             'nombre': (cfg.nombre or '').strip() or NOMBRE_DEFECTO,
             'sufijo': (cfg.titulo_sufijo or '').strip(),
             'subtitulo': (cfg.subtitulo or '').strip(),
+            'institucion': (cfg.institucion or '').strip() or INSTITUCION_DEFECTO,
+            'departamento': (cfg.departamento or '').strip() or DEPARTAMENTO_DEFECTO,
             'tiene_logo': bool(cfg.logo),
             'tiene_favicon': bool(cfg.favicon),
             'logo_mime': cfg.logo_mime,

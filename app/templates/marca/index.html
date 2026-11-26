@@ -52,6 +52,18 @@
                         <div class="form-text">Línea pequeña bajo el nombre en el menú lateral.</div>
                     </div>
 
+                    {% for campo, ayuda in [(form.institucion, 'Barra superior, pantalla de acceso y primera línea de los PDF. Vacío = "Dirección Provincial de Salud Santiago 1".'),
+                                            (form.departamento, 'Pantalla de acceso y segunda línea de los PDF. Vacío = "Departamento de Bioestadística".')] %}
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" for="{{ campo.id }}">{{ campo.label.text }}</label>
+                        {{ campo(class="form-control" ~ (" is-invalid" if campo.errors else "")) }}
+                        {% for error in campo.errors %}
+                            <div class="text-danger small mt-1" role="alert">{{ error }}</div>
+                        {% endfor %}
+                        <div class="form-text">{{ ayuda }}</div>
+                    </div>
+                    {% endfor %}
+
                     <hr>
 
                     <div class="row g-3 mb-3">

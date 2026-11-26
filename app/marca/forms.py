@@ -4,7 +4,9 @@ from wtforms import StringField, SubmitField
 from wtforms.validators import DataRequired, Length, Optional
 
 from app.models.marca import (
+    DEPARTAMENTO_MAX,
     EXTENSIONES_PERMITIDAS,
+    INSTITUCION_MAX,
     NOMBRE_MAX,
     SUBTITULO_MAX,
     SUFIJO_MAX,
@@ -25,6 +27,14 @@ class MarcaForm(FlaskForm):
     subtitulo = StringField('Subtítulo', validators=[
         Optional(),
         Length(max=SUBTITULO_MAX, message=f'Máximo {SUBTITULO_MAX} caracteres.'),
+    ])
+    institucion = StringField('Institución', validators=[
+        Optional(),
+        Length(max=INSTITUCION_MAX, message=f'Máximo {INSTITUCION_MAX} caracteres.'),
+    ])
+    departamento = StringField('Departamento', validators=[
+        Optional(),
+        Length(max=DEPARTAMENTO_MAX, message=f'Máximo {DEPARTAMENTO_MAX} caracteres.'),
     ])
     logo = FileField('Logo', validators=[
         Optional(),

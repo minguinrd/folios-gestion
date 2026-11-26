@@ -6,7 +6,9 @@ sistema de archivos. Sin logo el encabezado queda solo con los textos.
 
 from base64 import b64encode
 
-from app.models.marca import get_marca
+from markupsafe import escape
+
+from app.models.marca import DEPARTAMENTO_DEFECTO, INSTITUCION_DEFECTO, get_marca
 
 
 def logo_pdf():
@@ -25,12 +27,24 @@ def logo_pdf():
     )
 
 
+def textos_institucionales():
+    """(institución, departamento) ya escapados para HTML; defaults si la DB falla."""
+    try:
+        cfg = get_marca()
+        institucion = (cfg.institucion or '').strip() or INSTITUCION_DEFECTO
+        departamento = (cfg.departamento or '').strip() or DEPARTAMENTO_DEFECTO
+    except Exception:
+        institucion, departamento = INSTITUCION_DEFECTO, DEPARTAMENTO_DEFECTO
+    return escape(institucion), escape(departamento)
+
+
 def encabezado_pdf(titulo):
     """Bloque `.header` completo: logo opcional + textos institucionales + h3."""
+    institucion, departamento = textos_institucionales()
     return f'''
         <div class="header">
             {logo_pdf()}
-            <h1>Dirección Provincial de Salud Santiago 1</h1>
-            <h2>Departamento de Bioestadistica</h2>
+            <h1>{institucion}</h1>
+            <h2>{departamento}</h2>
             <h3>{titulo}</h3>
         </div>'''

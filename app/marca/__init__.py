@@ -65,6 +65,8 @@ def _snapshot(cfg):
         'nombre': cfg.nombre,
         'titulo_sufijo': cfg.titulo_sufijo,
         'subtitulo': cfg.subtitulo,
+        'institucion': cfg.institucion,
+        'departamento': cfg.departamento,
         'tiene_logo': bool(cfg.logo),
         'tiene_favicon': bool(cfg.favicon),
     }
@@ -98,6 +100,8 @@ def index():
     form.nombre.data = cfg.nombre
     form.titulo_sufijo.data = cfg.titulo_sufijo
     form.subtitulo.data = cfg.subtitulo
+    form.institucion.data = cfg.institucion
+    form.departamento.data = cfg.departamento
     return _vista(form)
 
 
@@ -126,6 +130,9 @@ def guardar():
     cfg.nombre = form.nombre.data.strip()
     cfg.titulo_sufijo = (form.titulo_sufijo.data or '').strip()
     cfg.subtitulo = (form.subtitulo.data or '').strip()
+    # Vacío se guarda como NULL: la UI y los PDF usan el texto por defecto.
+    cfg.institucion = (form.institucion.data or '').strip() or None
+    cfg.departamento = (form.departamento.data or '').strip() or None
     for campo, (datos, mime) in subidas.items():
         setattr(cfg, campo, datos)
         setattr(cfg, f'{campo}_mime', mime)

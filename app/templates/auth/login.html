@@ -15,7 +15,7 @@
             <span class="login-brand-icon"><i class="fas fa-file-medical-alt" aria-hidden="true"></i></span>
             {% endif %}
             <h1 class="login-brand-nombre">{{ marca.nombre }}</h1>
-            <p class="login-brand-sub">Dirección Provincial de Salud Santiago 1</p>
+            <p class="login-brand-sub">{{ marca.institucion }}</p>
 
             <ul class="login-brand-features list-unstyled">
                 <li><i class="fas fa-layer-group" aria-hidden="true"></i>Gestión de folios</li>
@@ -24,7 +24,7 @@
             </ul>
         </div>
         <p class="login-brand-footer">
-            <i class="fas fa-shield-halved" aria-hidden="true"></i>Departamento de Bioestadística
+            <i class="fas fa-shield-halved" aria-hidden="true"></i>{{ marca.departamento }}
         </p>
     </aside>
 
@@ -38,7 +38,7 @@
             {% endif %}
             <span class="login-brand-compact-texto">
                 <strong>{{ marca.nombre }}</strong>
-                <small>Dirección Provincial de Salud Santiago 1</small>
+                <small>{{ marca.institucion }}</small>
             </span>
         </header>
 
@@ -84,7 +84,7 @@
         </div>
 
         <p class="login-footer d-lg-none">
-            <i class="fas fa-shield-halved" aria-hidden="true"></i>Departamento de Bioestadística
+            <i class="fas fa-shield-halved" aria-hidden="true"></i>{{ marca.departamento }}
         </p>
     </main>
 </div>
