@@ -22,6 +22,31 @@
                     {{ form.hidden_tag() }}
 
                     <div class="row g-3">
+                        <div class="col-md-6">
+                            {{ form.fechaEntrega.label(class="form-label fw-semibold") }}
+                            {{ form.fechaEntrega(class="form-control") }}
+                            {% for error in form.fechaEntrega.errors %}
+                                <div class="text-danger small mt-1" role="alert">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="col-md-6">
+                            {{ form.centroId.label(class="form-label fw-semibold") }}
+                            {{ form.centroId(class="form-select") }}
+                            {% for error in form.centroId.errors %}
+                                <div class="text-danger small mt-1" role="alert">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        {# Ayuda: sugerido por tipo del centro elegido (no limita la entrega) #}
+                        <div class="col-12 d-none" id="panel-sugeridos-col">
+                            <div id="panel-sugeridos" class="alert alert-light border small mb-0 d-none"
+                                 data-url-base="{{ url_for('centros.index') }}" role="status" aria-live="polite">
+                                <div class="fw-semibold mb-1"><i class="fas fa-lightbulb me-1 text-warning"></i>Sugerido para este centro</div>
+                                <ul id="lista-sugeridos" class="mb-0 ps-3"></ul>
+                            </div>
+                        </div>
+
                         <div class="col-md-12">
                             <label class="form-label fw-semibold" for="folio-select">
                                 {{ form.folio_ids.label.text }}
@@ -63,28 +88,6 @@
                             </div>
                         </div>
 
-                        <div class="col-md-6">
-                            {{ form.fechaEntrega.label(class="form-label fw-semibold") }}
-                            {{ form.fechaEntrega(class="form-control") }}
-                            {% for error in form.fechaEntrega.errors %}
-                                <div class="text-danger small mt-1" role="alert">{{ error }}</div>
-                            {% endfor %}
-                        </div>
-
-                        <div class="col-md-6">
-                            {{ form.centroId.label(class="form-label fw-semibold") }}
-                            {{ form.centroId(class="form-select") }}
-                            {% for error in form.centroId.errors %}
-                                <div class="text-danger small mt-1" role="alert">{{ error }}</div>
-                            {% endfor %}
-                        </div>
-                    </div>
-
-                    {# Ayuda: sugerido por tipo del centro elegido (no limita la entrega) #}
-                    <div id="panel-sugeridos" class="alert alert-light border small mt-3 mb-0 d-none"
-                         data-url-base="{{ url_for('centros.index') }}" role="status" aria-live="polite">
-                        <div class="fw-semibold mb-1"><i class="fas fa-lightbulb me-1 text-warning"></i>Sugerido para este centro</div>
-                        <ul id="lista-sugeridos" class="mb-0 ps-3"></ul>
                     </div>
 
                     <hr>
@@ -214,6 +217,7 @@
     // Se arma con textContent: nombres de tipo vienen de la DB (nunca innerHTML).
     const centroSelect = document.getElementById('centroId');
     const panelSug = document.getElementById('panel-sugeridos');
+    const panelSugCol = document.getElementById('panel-sugeridos-col');
     const listaSug = document.getElementById('lista-sugeridos');
     let sugeridos = [];
     let seqSug = 0;
@@ -235,6 +239,7 @@
             listaSug.appendChild(li);
         });
         panelSug.classList.toggle('d-none', sugeridos.length === 0);
+        panelSugCol.classList.toggle('d-none', sugeridos.length === 0);
         actualizarBotonSugerido();
     }
 
