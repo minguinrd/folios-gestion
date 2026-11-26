@@ -208,6 +208,12 @@ def validar_escaneados():
         i = reporte['ignorados']
         partes.append(f'{i} {plural(i, "archivo")} {plural(i, "ignorado")}')
     flash('Validación completada: ' + ', '.join(partes) + '.', 'success')
+    if reporte['ambiguos']:
+        n = reporte['ambiguos']
+        flash(f'{n} {plural(n, "archivo")} con formato anterior '
+              '(<año>/<número>.jpg) coinciden con varios tipos y no se '
+              'aplicaron. Muévalos a <año>/<id del tipo>/ (ver '
+              'migrar_escaneos.py).', 'warning')
     if reporte['anios_sin_carpeta']:
         anios = ', '.join(str(a) for a in reporte['anios_sin_carpeta'])
         flash(f'Sin carpeta para {anios}: esos folios no se desmarcaron.',

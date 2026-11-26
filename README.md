@@ -69,7 +69,7 @@ troubleshooting— en [`docs/despliegue.md`](docs/despliegue.md).
 | `RATELIMIT_DEFAULT` | `300 per hour` | Tope global de peticiones. `/health` va exento. |
 | `REPORTE_PDF_MAX_FILAS` | `5000` | Tope de filas del PDF de Reportes (WeasyPrint arma todo en memoria). Por encima se pide filtrar o usar el Excel. |
 | `TZ` | UTC (contenedor) | Hora local para las fechas de auditoría y detalle de folio (se guardan en UTC). |
-| `SCANS_FOLDER` | `<raíz del proyecto>/scans` | Carpeta de los JPG de folios escaneados: `<SCANS_FOLDER>/<año>/<número>.jpg`. En Docker montada como `./scans:/app/scans` — ver el gotcha de ownership en [Escaneos](#escaneos). |
+| `SCANS_FOLDER` | `<raíz del proyecto>/scans` | Carpeta de los JPG de folios escaneados: `<SCANS_FOLDER>/<año>/<id del tipo>/<número>.jpg`. En Docker montada como `./scans:/app/scans` — ver el gotcha de ownership en [Escaneos](#escaneos). |
 
 ### Rotar credenciales de MariaDB
 
@@ -284,9 +284,11 @@ Escaneados** de Folios.
   (`FF D8 FF`); un PNG/PDF renombrado a `.jpg` se reporta como "No es un JPG"
   y no se escribe. Subir un número que ya tiene escaneo lo reemplaza, y el
   reporte lo indica ("Reemplazó el anterior").
-- **Subcarpeta por año:** el selector de año del form manda; los archivos se
-  guardan en `<SCANS_FOLDER>/<año>/`. El año se aplica a todo el lote, sin
-  importar la fecha del archivo.
+- **Subcarpeta por año y tipo:** los selectores de año y tipo de certificado
+  mandan; los archivos se guardan en `<SCANS_FOLDER>/<año>/<id del tipo>/`
+  (la página de subida lista el id de cada tipo). Año y tipo se aplican a
+  todo el lote. La carpeta usa el **id** del tipo, no su nombre: renombrar un
+  tipo no deja escaneos huérfanos.
 - **Sobrescritura:** subir de nuevo el mismo número sobrescribe el JPG
   existente (gana el último del lote) y el folio sigue marcado.
 - **Lote tolerante a errores:** un nombre inválido (`.png`, espacios, ruta,
@@ -294,9 +296,26 @@ Escaneados** de Folios.
   "Nombre inválido", no se escribe nada para él y el resto del lote se
   procesa normalmente. No hay validación `FileAllowed` en el form: el único
   gate es la regex de `app/services/escaneos.py`.
-- **Marcado:** al guardar, los folios con ese `(año, número)` quedan en
+- **Marcado:** al guardar, el folio con ese `(año, tipo, número)` queda en
   `escaneado=True` (auditable); si no existe el folio el JPG se guarda igual
   y se reporta "Sin coincidencia".
+
+### Escaneos con el formato anterior (`<año>/<número>.jpg`)
+
+Hasta la versión 1.8 los escaneos se guardaban sin carpeta de tipo, y un
+número repetido entre tipos marcaba todos. **Validar Escaneados** sigue
+leyendo esos archivos: marca el folio solo si es el único con ese año y
+número; si hay varios tipos (ambiguo) no marca ni desmarca ninguno y avisa.
+Para pasarlos al formato nuevo:
+
+```bash
+docker compose exec app python migrar_escaneos.py            # simulación
+docker compose exec app python migrar_escaneos.py --aplicar  # mueve
+```
+
+Solo se mueven los inequívocos; los ambiguos, los que no tienen folio y los
+que chocan con un archivo existente quedan en su lugar y se listan — muévalos
+a mano a `<año>/<id del tipo>/` y vuelva a **Validar Escaneados**.
 
 ### Volumen Docker: crear `scans/` antes del primer arranque
 

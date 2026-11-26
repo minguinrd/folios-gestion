@@ -5,6 +5,7 @@ from app.decorators import permiso_requerido
 from app.escaneos.forms import EscaneoForm
 from app.extensions import db
 from app.models.folio import Folio
+from app.models.tipo_certificado import TipoCertificado
 from app.services.escaneos import guardar_y_matchear
 
 escaneos_bp = Blueprint('escaneos', __name__, url_prefix='/escaneos')
@@ -20,10 +21,14 @@ def subir():
              db.session.query(Folio.anioCert).distinct()
              .order_by(Folio.anioCert.desc()).all()]
     form.anio.choices = [(a, str(a)) for a in anios]
+    # Todos los tipos (también inactivos): un folio viejo puede ser de un tipo
+    # ya desactivado y su escaneo debe poder subirse igual.
+    tipos = TipoCertificado.query.order_by(TipoCertificado.name).all()
+    form.tipo.choices = [(t.id, t.name) for t in tipos]
 
     reporte = None
     if form.validate_on_submit():
         reporte = guardar_y_matchear(form.archivos.data, form.anio.data,
-                                     current_user.id)
+                                     form.tipo.data, current_user.id)
     return render_template('escaneos/subir.html', form=form, anios=anios,
-                           reporte=reporte)
+                           tipos=tipos, reporte=reporte)

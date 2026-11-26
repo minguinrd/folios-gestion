@@ -23,6 +23,7 @@ docker compose up -d db          # start MariaDB only
 python3 init_db.py               # seed admin + certificate types
 python3 run.py                   # Flask dev server on :8089
 venv/bin/python reset_password.py <user|email> [--password X] [--by admin]  # reset contraseña; solo si DB_HOST resuelve desde el host
+venv/bin/python migrar_escaneos.py [--aplicar]                     # escaneos <año>/<n>.jpg → <año>/<tipo_id>/<n>.jpg (simula sin --aplicar)
 venv/bin/python vaciar_tablas.py [--by USER]                        # vacía todas las tablas menos usuarios (doble confirmación: s + BORRAR)
 
 # Full Docker stack
@@ -129,7 +130,7 @@ run_worker.py      # servicio compose `sync-worker` (APScheduler, tick 1 min, la
 - Tests PDF (`test_pdf_escape`, `test_exports_contenido::…pdf`) requieren pango/cairo: corren en Docker, no en un venv bare.
 - Tests: **un solo usuario autenticado por test**. El fixture `app` mantiene un app context activo y Flask lo reusa en cada request ⇒ `g._login_user` (caché de Flask-Login) se comparte entre test clients del mismo test: un segundo client ve al usuario del primero. En producción no aplica (context por request).
 - Importar digitado/nulos (`/folios/importar*`): plantilla `folio, anio, tipo` (`anio`/`tipo` opcionales por celda; se acepta también el formato viejo de solo `folio`, vía `leer_filas(..., opcionales=)`). Una fila que coincide con **más de un** folio es "Ambiguo" y no se marca — nunca se marcan todas las coincidencias de un número. El payload del confirm son **ids de folio**, no números.
-- Escaneos: además de `NOMBRE_RE`, el contenido debe empezar con la firma JPEG (`FF D8 FF`, `es_jpeg`); si no, `contenido_invalido` y no se escribe. Reemplazar un JPG existente se permite pero se reporta (`reemplazado`). El archivo sigue siendo `<año>/<número>.jpg`: dos tipos con el mismo número y año comparten archivo.
+- Escaneos: además de `NOMBRE_RE`, el contenido debe empezar con la firma JPEG (`FF D8 FF`, `es_jpeg`); si no, `contenido_invalido` y no se escribe. Reemplazar un JPG existente se permite pero se reporta (`reemplazado`). Layout `<SCANS_FOLDER>/<año>/<tipo_id>/<número>.jpg` (id, no nombre); el form de subida exige tipo. El layout anterior `<año>/<número>.jpg` solo se lee en `validar_carpeta` (inequívoco → marca; varios tipos → `ambiguos`, no se toca en ningún sentido) y se migra con `migrar_escaneos.py [--aplicar]` (`migrar_legados`).
 - Reportes: el Excel se genera `write_only` + `yield_per` (neutralización de fórmulas celda a celda con `celda_segura`, no `neutralizar_formulas`); el PDF se niega por encima de `REPORTE_PDF_MAX_FILAS` (default 5000) y redirige con aviso.
 - `folios.estado` tiene CHECK `ck_folios_estado` (`ESTADOS_FOLIO` en `app/models/folio.py`: disponible/entregado/devuelto/perdido). `nulo`/`digitado`/`escaneado` son banderas, no estados. La migración 0009 aborta con mensaje si encuentra estados fuera de catálogo.
 - Login: con usuario inexistente se verifica igual contra `_hash_senuelo()` para no filtrar por timing qué usernames existen.

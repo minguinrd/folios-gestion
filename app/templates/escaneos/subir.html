@@ -19,11 +19,21 @@
                 <p class="text-muted mb-3">
                     Suba los JPG de los folios escaneados. Cada archivo debe
                     llamarse <code>numero.jpg</code> (ej.
-                    <code>1000.jpg</code>) y se guardará en la carpeta del año
-                    elegido. Si el número coincide con folios de ese año, todos
-                    quedan marcados como escaneados. Los archivos repetidos se
-                    sobrescriben.
+                    <code>1000.jpg</code>) y se guardará en
+                    <code>&lt;año&gt;/&lt;id del tipo&gt;/</code>. Si el número
+                    coincide con el folio de ese año y tipo, queda marcado como
+                    escaneado. Un archivo que ya existía se reemplaza (y se avisa).
                 </p>
+                {% if tipos %}
+                <details class="small text-muted mb-3">
+                    <summary>Carpeta de cada tipo (para copiar archivos directo al servidor)</summary>
+                    <ul class="mb-0 mt-2">
+                        {% for t in tipos %}
+                        <li><code>&lt;año&gt;/{{ t.id }}/</code> — {{ t.name }}</li>
+                        {% endfor %}
+                    </ul>
+                </details>
+                {% endif %}
 
                 {% if not anios %}
                 <div class="alert alert-warning">
@@ -34,14 +44,21 @@
                 <form method="POST" enctype="multipart/form-data" data-loading>
                     {{ form.hidden_tag() }}
                     <div class="row g-3 align-items-end">
-                        <div class="col-md-4">
+                        <div class="col-md-2">
                             {{ form.anio.label(class="form-label fw-semibold") }}
                             {{ form.anio(class="form-select") }}
                             {% for error in form.anio.errors %}
                                 <div class="text-danger small mt-1" role="alert">{{ error }}</div>
                             {% endfor %}
                         </div>
-                        <div class="col-md-5">
+                        <div class="col-md-3">
+                            {{ form.tipo.label(class="form-label fw-semibold") }}
+                            {{ form.tipo(class="form-select") }}
+                            {% for error in form.tipo.errors %}
+                                <div class="text-danger small mt-1" role="alert">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        <div class="col-md-4">
                             {{ form.archivos.label(class="form-label fw-semibold") }}
                             {{ form.archivos(class="form-control", multiple=True, accept=".jpg,.jpeg,image/jpeg") }}
                             {% for error in form.archivos.errors %}
@@ -50,7 +67,7 @@
                         </div>
                         <div class="col-md-3">
                             {{ form.submit(class="btn btn-primary w-100",
-                                           disabled=(not anios)) }}
+                                           disabled=(not anios or not tipos)) }}
                         </div>
                     </div>
                 </form>
@@ -79,7 +96,7 @@
                             <tr>
                                 <th>Archivo</th>
                                 <th>Folio</th>
-                                <th>Folios marcados</th>
+                                <th>Folio encontrado</th>
                                 <th>Resultado</th>
                             </tr>
                         </thead>
@@ -88,7 +105,7 @@
                             <tr>
                                 <td>{{ r.nombre }}</td>
                                 <td>{{ r.numero if r.numero is not none else '—' }}</td>
-                                <td>{{ r.folios if r.folios else '—' }}</td>
+                                <td>{{ 'Sí' if r.folios else '—' }}</td>
                                 <td>
                                     <span class="badge
                                         {% if r.estado == 'marcado' %}bg-success

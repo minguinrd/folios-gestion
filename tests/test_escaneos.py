@@ -41,6 +41,9 @@ def scans_dir(app, tmp_path):
 
 
 SOI = b'\xff\xd8\xff'  # firma JPEG: los helpers la anteponen al contenido
+# Id del fixture `tipo` (primer TipoCertificado de la DB en memoria). Los
+# tests de servicio sin fixture usan el mismo id: solo define la carpeta.
+TIPO = 1
 
 
 def jpg(nombre, data=b'JPEGDATA', crudo=False):
@@ -52,15 +55,16 @@ def test_servicio_guarda_y_marca(app, tipo, scans_dir):
     folio = make_folio(tipo, anio=2026, numero=1000)
     db.session.commit()
     with app.test_request_context():
-        reporte = guardar_y_matchear([jpg('1000.jpg')], 2026, folio.id)
+        reporte = guardar_y_matchear([jpg('1000.jpg')], 2026, tipo.id, folio.id)
     assert reporte['marcados'] == 1
     assert reporte['resultados'][0]['estado'] == 'marcado'
     assert reporte['resultados'][0]['folios'] == 1
     assert folio.escaneado is True
-    assert (scans_dir / '2026' / '1000.jpg').read_bytes() == SOI + b'JPEGDATA'
+    assert (scans_dir / '2026' / str(TIPO) / '1000.jpg').read_bytes() == SOI + b'JPEGDATA'
 
 
-def test_servicio_marca_todos_los_tipos(app, tipo, scans_dir):
+def test_servicio_marca_solo_el_tipo_elegido(app, tipo, scans_dir):
+    """Regresión: mismo número y año en dos tipos → solo el del selector."""
     from app.models.tipo_certificado import TipoCertificado
     otro = TipoCertificado(name='Nacimientos', color='#0D6EFD', activo=True)
     db.session.add(otro)
@@ -69,25 +73,27 @@ def test_servicio_marca_todos_los_tipos(app, tipo, scans_dir):
     f2 = make_folio(otro, anio=2026, numero=1000, rangoId=2)
     db.session.commit()
     with app.test_request_context():
-        reporte = guardar_y_matchear([jpg('1000.jpg')], 2026, 1)
-    assert f1.escaneado is True
+        reporte = guardar_y_matchear([jpg('1000.jpg')], 2026, otro.id, 1)
+    assert f1.escaneado is False
     assert f2.escaneado is True
-    assert reporte['resultados'][0]['folios'] == 2
+    assert reporte['resultados'][0]['folios'] == 1
+    assert (scans_dir / '2026' / str(otro.id) / '1000.jpg').exists()
+    assert not (scans_dir / '2026' / str(tipo.id) / '1000.jpg').exists()
 
 
 def test_servicio_sin_coincidencia_guarda_igual(app, scans_dir):
     with app.test_request_context():
-        reporte = guardar_y_matchear([jpg('9999.jpg')], 2026, 1)
+        reporte = guardar_y_matchear([jpg('9999.jpg')], 2026, TIPO, 1)
     assert reporte['sin_coincidencia'] == 1
     assert reporte['marcados'] == 0
-    assert (scans_dir / '2026' / '9999.jpg').exists()
+    assert (scans_dir / '2026' / str(TIPO) / '9999.jpg').exists()
 
 
 def test_servicio_nombres_invalidos_no_escriben(app, scans_dir):
     invalidos = ['1000 copia.jpg', '../../1000.jpg', 'abc.jpg',
                  '1000.png', '1000', '.jpg']
     with app.test_request_context():
-        reporte = guardar_y_matchear([jpg(n) for n in invalidos], 2026, 1)
+        reporte = guardar_y_matchear([jpg(n) for n in invalidos], 2026, TIPO, 1)
     assert reporte['invalidos'] == len(invalidos)
     assert reporte['resultados'][0]['estado'] == 'nombre_invalido'
     assert not scans_dir.exists(), 'ningún inválido debe crear la carpeta'
@@ -99,10 +105,10 @@ def test_servicio_nombre_con_demasiados_digitos_no_crashea(app, scans_dir):
     nombre_largo = '9' * 5000 + '.jpg'
     with app.test_request_context():
         reporte = guardar_y_matchear(
-            [jpg(nombre_largo), jpg('1000.jpg')], 2026, 1)
+            [jpg(nombre_largo), jpg('1000.jpg')], 2026, TIPO, 1)
     assert reporte['invalidos'] == 1
     assert reporte['resultados'][0]['estado'] == 'nombre_invalido'
-    assert (scans_dir / '2026' / '1000.jpg').exists(), \
+    assert (scans_dir / '2026' / str(TIPO) / '1000.jpg').exists(), \
         'el válido del mismo lote debe procesarse igual'
 
 
@@ -110,36 +116,36 @@ def test_servicio_mayusculas_y_jpeg_aceptados(app, tipo, scans_dir):
     folio = make_folio(tipo, anio=2026, numero=1001)
     db.session.commit()
     with app.test_request_context():
-        guardar_y_matchear([jpg('1001.JPG'), jpg('1001.jpeg')], 2026, 1)
+        guardar_y_matchear([jpg('1001.JPG'), jpg('1001.jpeg')], 2026, TIPO, 1)
     assert folio.escaneado is True
     # El destino se reconstruye desde el número: siempre <numero>.jpg
-    assert (scans_dir / '2026' / '1001.jpg').exists()
+    assert (scans_dir / '2026' / str(TIPO) / '1001.jpg').exists()
 
 
 def test_servicio_sobrescribe(app, scans_dir):
     with app.test_request_context():
-        guardar_y_matchear([jpg('1000.jpg', b'UNO')], 2026, 1)
-        guardar_y_matchear([jpg('1000.jpg', b'DOS')], 2026, 1)
-    assert (scans_dir / '2026' / '1000.jpg').read_bytes() == SOI + b'DOS'
+        guardar_y_matchear([jpg('1000.jpg', b'UNO')], 2026, TIPO, 1)
+        guardar_y_matchear([jpg('1000.jpg', b'DOS')], 2026, TIPO, 1)
+    assert (scans_dir / '2026' / str(TIPO) / '1000.jpg').read_bytes() == SOI + b'DOS'
 
 
 def test_servicio_anio_distinto_no_matchea(app, tipo, scans_dir):
     folio = make_folio(tipo, anio=2025, numero=1000)
     db.session.commit()
     with app.test_request_context():
-        reporte = guardar_y_matchear([jpg('1000.jpg')], 2026, 1)
+        reporte = guardar_y_matchear([jpg('1000.jpg')], 2026, TIPO, 1)
     assert reporte['sin_coincidencia'] == 1
     assert folio.escaneado is False
-    assert (scans_dir / '2026' / '1000.jpg').exists(), 'el archivo va al año pedido'
+    assert (scans_dir / '2026' / str(TIPO) / '1000.jpg').exists(), 'el archivo va al año pedido'
 
 
 def test_servicio_audita_solo_cambio(app, tipo, scans_dir):
     folio = make_folio(tipo, anio=2026, numero=1000)
     db.session.commit()
     with app.test_request_context():
-        guardar_y_matchear([jpg('1000.jpg')], 2026, 1)
+        guardar_y_matchear([jpg('1000.jpg')], 2026, TIPO, 1)
         primera = AuditLog.query.filter_by(tabla='folios', registro_id=folio.id).count()
-        guardar_y_matchear([jpg('1000.jpg')], 2026, 1)
+        guardar_y_matchear([jpg('1000.jpg')], 2026, TIPO, 1)
         segunda = AuditLog.query.filter_by(tabla='folios', registro_id=folio.id).count()
     assert primera == 1, 'el primer marcado debe auditar'
     assert segunda == 1, 're-subir no debe duplicar el log'
@@ -295,10 +301,11 @@ def test_boton_oculto_para_lectura(client):
         'lectura no debe ver el botón (no tiene escaneos.subir)'
 
 
-def post_subir(client, anio, archivos):
+def post_subir(client, anio, archivos, tipo=TIPO):
     """archivos: lista de (nombre, contenido_bytes)."""
     data = {
         'anio': anio,
+        'tipo': tipo,
         'archivos': [(BytesIO(SOI + contenido), nombre)
                      for nombre, contenido in archivos],
     }
@@ -333,7 +340,7 @@ def test_subir_marca_folio(admin_client, folio, scans_dir):
     text = resp.get_data(as_text=True)
     assert 'Marcado' in text
     assert folio.escaneado is True
-    assert (scans_dir / '2026' / '1000.jpg').exists()
+    assert (scans_dir / '2026' / str(TIPO) / '1000.jpg').exists()
 
 
 def test_subir_sin_anio_no_escribe(admin_client, folio, scans_dir):
@@ -357,7 +364,7 @@ def test_subir_archivo_repetido_en_lote(admin_client, folio, scans_dir):
                       [('1000.jpg', b'UNO'), ('1000.jpg', b'DOS')])
     assert resp.status_code == 200
     assert folio.escaneado is True
-    assert (scans_dir / '2026' / '1000.jpg').read_bytes() == SOI + b'DOS'
+    assert (scans_dir / '2026' / str(TIPO) / '1000.jpg').read_bytes() == SOI + b'DOS'
 
 
 def test_subir_lote_mixto(admin_client, folio, scans_dir):
@@ -369,8 +376,8 @@ def test_subir_lote_mixto(admin_client, folio, scans_dir):
     assert resp.status_code == 200
     text = resp.get_data(as_text=True)
     assert folio.escaneado is True, 'un inválido no aborta el lote'
-    assert (scans_dir / '2026' / '9999.jpg').exists()
-    assert not (scans_dir / '2026' / 'nada.jpg').exists()
+    assert (scans_dir / '2026' / str(TIPO) / '9999.jpg').exists()
+    assert not (scans_dir / '2026' / str(TIPO) / 'nada.jpg').exists()
     assert 'Nombre inválido' in text
     assert 'Sin coincidencia' in text
 
@@ -386,9 +393,9 @@ def test_subir_lote_mixto_con_png(admin_client, folio, scans_dir):
     assert resp.status_code == 200
     text = resp.get_data(as_text=True)
     assert folio.escaneado is True, 'un no-JPG no aborta el lote'
-    assert (scans_dir / '2026' / '1000.jpg').read_bytes() == SOI + b'OK'
-    assert not (scans_dir / '2026' / 'escaneo.png').exists()
-    assert not (scans_dir / '2026' / 'escaneo.jpg').exists()
+    assert (scans_dir / '2026' / str(TIPO) / '1000.jpg').read_bytes() == SOI + b'OK'
+    assert not (scans_dir / '2026' / str(TIPO) / 'escaneo.png').exists()
+    assert not (scans_dir / '2026' / str(TIPO) / 'escaneo.jpg').exists()
     assert 'Nombre inválido' in text
 
 
@@ -397,10 +404,10 @@ def test_contenido_no_jpeg_rechazado_y_no_se_escribe(app, tipo, scans_dir):
     db.session.commit()
     with app.test_request_context():
         reporte = guardar_y_matchear(
-            [jpg('1000.jpg', b'\x89PNG\r\n', crudo=True)], 2026, 1)
+            [jpg('1000.jpg', b'\x89PNG\r\n', crudo=True)], 2026, TIPO, 1)
     assert reporte['invalidos'] == 1
     assert reporte['resultados'][0]['estado'] == 'contenido_invalido'
-    assert not (scans_dir / '2026' / '1000.jpg').exists()
+    assert not (scans_dir / '2026' / str(TIPO) / '1000.jpg').exists()
     assert db.session.get(Folio, folio.id).escaneado is False
 
 
@@ -408,9 +415,138 @@ def test_reemplazo_se_reporta(app, tipo, scans_dir):
     make_folio(tipo, anio=2026, numero=1000)
     db.session.commit()
     with app.test_request_context():
-        primero = guardar_y_matchear([jpg('1000.jpg', b'UNO')], 2026, 1)
-        segundo = guardar_y_matchear([jpg('1000.jpg', b'DOS')], 2026, 1)
+        primero = guardar_y_matchear([jpg('1000.jpg', b'UNO')], 2026, TIPO, 1)
+        segundo = guardar_y_matchear([jpg('1000.jpg', b'DOS')], 2026, TIPO, 1)
     assert primero['reemplazados'] == 0
     assert primero['resultados'][0]['reemplazado'] is False
     assert segundo['reemplazados'] == 1
     assert segundo['resultados'][0]['reemplazado'] is True
+
+
+# --- layout <anio>/<tipo_id>/<n>.jpg y compatibilidad con el anterior ---
+
+
+def escribir_exacto(scans_dir, anio, tipo_id, nombre):
+    carpeta = scans_dir / str(anio) / str(tipo_id)
+    carpeta.mkdir(parents=True, exist_ok=True)
+    (carpeta / nombre).write_bytes(SOI + b'IMG')
+
+
+def _dos_tipos(tipo):
+    from app.models.tipo_certificado import TipoCertificado
+    otro = TipoCertificado(name='Nacimientos', color='#198754', activo=True)
+    db.session.add(otro)
+    db.session.flush()
+    f1 = make_folio(tipo, anio=2026, numero=1000, rangoId=1)
+    f2 = make_folio(otro, anio=2026, numero=1000, rangoId=2)
+    db.session.commit()
+    return otro, f1, f2
+
+
+def test_validar_layout_por_tipo_marca_solo_ese_tipo(app, tipo, scans_dir):
+    otro, f1, f2 = _dos_tipos(tipo)
+    escribir_exacto(scans_dir, 2026, otro.id, '1000.jpg')
+    with app.test_request_context():
+        reporte = validar_carpeta(1)
+    assert f2.escaneado is True
+    assert f1.escaneado is False
+    assert reporte['marcados'] == 1
+    assert reporte['archivos'] == 1
+
+
+def test_validar_desmarca_tipo_sin_archivo(app, tipo, scans_dir):
+    otro, f1, f2 = _dos_tipos(tipo)
+    f1.escaneado = True
+    db.session.commit()
+    escribir_exacto(scans_dir, 2026, otro.id, '1000.jpg')
+    with app.test_request_context():
+        reporte = validar_carpeta(1)
+    assert f1.escaneado is False, 'el archivo es del otro tipo'
+    assert f2.escaneado is True
+    assert reporte['desmarcados'] == 1
+
+
+def test_validar_legado_ambiguo_no_marca_ni_desmarca(app, tipo, scans_dir):
+    otro, f1, f2 = _dos_tipos(tipo)
+    f1.escaneado = True  # marcado por el comportamiento anterior
+    db.session.commit()
+    escribir(scans_dir, 2026, '1000.jpg')  # layout anterior, 2 candidatos
+    with app.test_request_context():
+        reporte = validar_carpeta(1)
+    assert f1.escaneado is True, 'ambiguo: no se desmarca'
+    assert f2.escaneado is False, 'ambiguo: no se marca'
+    assert reporte['ambiguos'] == 1
+    assert reporte['legados'] == 1
+    assert AuditLog.query.count() == 0
+
+
+def test_validar_endpoint_avisa_ambiguos(admin_client, tipo, scans_dir):
+    _dos_tipos(tipo)
+    escribir(scans_dir, 2026, '1000.jpg')
+    text = admin_client.post('/folios/validar-escaneados',
+                             follow_redirects=True).get_data(as_text=True)
+    assert 'coinciden con varios tipos' in text
+    assert 'migrar_escaneos.py' in text
+
+
+def test_migrar_legados_simula_y_aplica(app, tipo, scans_dir):
+    from app.services.escaneos import migrar_legados
+    otro, _, _ = _dos_tipos(tipo)
+    unico = make_folio(tipo, anio=2026, numero=2000, rangoId=3)
+    db.session.commit()
+    escribir(scans_dir, 2026, '1000.jpg')   # ambiguo
+    escribir(scans_dir, 2026, '2000.jpg')   # único → se mueve
+    escribir(scans_dir, 2026, '3000.jpg')   # sin folio
+    with app.test_request_context():
+        simulado = migrar_legados()
+        assert (scans_dir / '2026' / '2000.jpg').exists(), 'simular no mueve'
+        aplicado = migrar_legados(aplicar=True)
+    for rep in (simulado, aplicado):
+        assert [o.name for o, _ in rep['movidos']] == ['2000.jpg']
+        assert [p.name for p in rep['ambiguos']] == ['1000.jpg']
+        assert [p.name for p in rep['sin_folio']] == ['3000.jpg']
+    assert not (scans_dir / '2026' / '2000.jpg').exists()
+    assert (scans_dir / '2026' / str(unico.tipoCert_id) / '2000.jpg').exists()
+    assert (scans_dir / '2026' / '1000.jpg').exists(), 'ambiguo queda en su lugar'
+
+
+def test_migrar_legados_no_sobrescribe(app, tipo, scans_dir):
+    from app.services.escaneos import migrar_legados
+    make_folio(tipo, anio=2026, numero=2000)
+    db.session.commit()
+    escribir(scans_dir, 2026, '2000.jpg')
+    escribir_exacto(scans_dir, 2026, tipo.id, '2000.jpg')
+    with app.test_request_context():
+        rep = migrar_legados(aplicar=True)
+    assert rep['movidos'] == []
+    assert [p.name for p in rep['conflictos']] == ['2000.jpg']
+    assert (scans_dir / '2026' / '2000.jpg').exists()
+
+
+def test_subir_sin_tipo_no_escribe(admin_client, folio, scans_dir):
+    resp = post_subir(admin_client, 2026, [('1000.jpg', b'IMG')], tipo='')
+    assert 'Seleccione un tipo de certificado' in resp.get_data(as_text=True)
+    assert folio.escaneado is False
+    assert not scans_dir.exists()
+
+
+def test_subir_muestra_carpeta_por_tipo(admin_client, tipo):
+    text = admin_client.get('/escaneos/subir').get_data(as_text=True)
+    assert f'&lt;año&gt;/{tipo.id}/</code> — {tipo.name}' in text
+
+
+def test_script_migrar_escaneos_simula_por_defecto(app, tipo, scans_dir,
+                                                   monkeypatch, capsys):
+    import migrar_escaneos
+    make_folio(tipo, anio=2026, numero=2000)
+    db.session.commit()
+    escribir(scans_dir, 2026, '2000.jpg')
+    monkeypatch.setattr(migrar_escaneos, 'create_app', lambda: app)
+    assert migrar_escaneos.main([]) == 0
+    salida = capsys.readouterr().out
+    assert 'Se moverían: 1' in salida
+    assert '--aplicar' in salida
+    assert (scans_dir / '2026' / '2000.jpg').exists()
+    assert migrar_escaneos.main(['--aplicar']) == 0
+    assert 'Movidos: 1' in capsys.readouterr().out
+    assert (scans_dir / '2026' / str(tipo.id) / '2000.jpg').exists()

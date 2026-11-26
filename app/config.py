@@ -69,7 +69,7 @@ class Config:
     # por encima se pide filtrar o usar el Excel, que se genera en streaming.
     REPORTE_PDF_MAX_FILAS = int(os.environ.get('REPORTE_PDF_MAX_FILAS', 5000))
 
-    # Carpeta de folios escaneados: <SCANS_FOLDER>/<anio>/<numero>.jpg.
+    # Carpeta de folios escaneados: <SCANS_FOLDER>/<anio>/<tipo_id>/<numero>.jpg.
     # Se monta como volumen en docker-compose (sobrevive reinicios del contenedor).
     _PROYECTO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     SCANS_FOLDER = os.environ.get('SCANS_FOLDER') or os.path.join(_PROYECTO, 'scans')
