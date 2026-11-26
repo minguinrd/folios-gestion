@@ -113,7 +113,7 @@
 
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/seleccion_rango.js') }}"></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
     const centroSelect = document.getElementById('centro-select');
     const tipoSelect = document.getElementById('tipo-select');
     const folioSelect = document.getElementById('folio-select');

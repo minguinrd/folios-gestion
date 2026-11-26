@@ -455,3 +455,12 @@ document.addEventListener('DOMContentLoaded', function() {
         dateFormat: 'd/m/Y',
     });
 });
+
+// Botones "Cancelar" dentro de un <details> (p. ej. editar comentario de folio):
+// lo cierran. Delegado y sin onclick= inline (la CSP lo bloquearía).
+document.addEventListener('click', function (e) {
+    const boton = e.target.closest('[data-cerrar-details]');
+    if (!boton) return;
+    const details = boton.closest('details');
+    if (details) details.removeAttribute('open');
+});

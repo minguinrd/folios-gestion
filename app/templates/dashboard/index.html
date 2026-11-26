@@ -25,7 +25,7 @@
     <div class="col-6 col-md-4 col-xl">
         <div class="card border-0 shadow-sm h-100 kpi-card" role="button" tabindex="0"
              aria-label="{{ etiqueta }}: {{ valor }}. Ver desglose por tipo"
-             onclick="abrirModal('{{ key }}')">
+             data-kpi="{{ key }}">
             <div class="card-body text-center">
                 <div class="{{ color }} mb-2">
                     <i class="fas {{ icono }} fa-2x" aria-hidden="true"></i>
@@ -173,7 +173,7 @@
 
 {% block extra_js %}
 <script src="{{ url_for('static', filename='vendor/chartjs/4.4.1/chart.umd.min.js') }}" integrity="sha384-9nhczxUqK87bcKHh20fSQcTGD4qq5GhayNYSYWqwBkINBhOfQLg/P5HG5lF1urn4"></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
     // Configuración por KPI: título, icono, color de cabecera y mensajes.
     const KPIS = {
         total:      { titulo: 'Total Folios por Tipo',        icono: 'fa-file-alt',     header: 'bg-primary text-white',  spinner: 'text-primary',  blanco: true,  vacio: 'No hay folios' },
@@ -187,6 +187,11 @@
 
     let kpiModalInstancia = null;
     let kpiSolicitud = 0;   // token: descarta respuestas de KPIs ya cerrados
+
+    // Clic (y Enter/Espacio, que main.js convierte en clic) en una tarjeta KPI.
+    document.querySelectorAll('.kpi-card[data-kpi]').forEach(function (card) {
+        card.addEventListener('click', function () { abrirModal(card.dataset.kpi); });
+    });
 
     function abrirModal(filtro) {
         const cfg = KPIS[filtro];

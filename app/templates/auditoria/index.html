@@ -139,7 +139,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ csp_nonce() }}">
     document.getElementById('tableSearch').addEventListener('input', function() {
         const text = this.value.toLowerCase();
         document.querySelectorAll('#auditoria-table tbody tr').forEach(row => {

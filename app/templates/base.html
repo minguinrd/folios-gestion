@@ -8,7 +8,7 @@
     {% if marca.tiene_favicon %}
     <link rel="icon" type="{{ marca.favicon_mime }}" href="{{ marca.favicon_url }}">
     {% endif %}
-    <script>
+    <script nonce="{{ csp_nonce() }}">
         // Aplica el tema guardado antes del primer pintado (evita destello).
         try {
             var temaGuardado = localStorage.getItem('folios-tema');

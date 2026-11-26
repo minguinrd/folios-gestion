@@ -161,8 +161,45 @@ def create_app(config_class=None):
     def health():
         return jsonify(status='ok'), 200
 
+    # CSP con nonce por petición: solo corren los scripts inline que llevan
+    # nonce="{{ csp_nonce() }}" (y los .js propios); nada de onclick=/javascript:.
+    # style-src admite 'unsafe-inline' (atributos style= y estilos que inyectan
+    # SweetAlert2/Chart.js). img-src data: por los íconos SVG de Bootstrap.
+    @app.before_request
+    def nuevo_csp_nonce():
+        # Siempre uno nuevo por petición: `g` puede sobrevivir entre peticiones
+        # si hay un app context externo activo (tests), y un nonce repetido no
+        # protege nada.
+        import secrets
+        from flask import g
+        g.csp_nonce = secrets.token_urlsafe(16)
+
+    @app.template_global()
+    def csp_nonce():
+        from flask import g
+        if not getattr(g, 'csp_nonce', None):  # error antes de before_request
+            nuevo_csp_nonce()
+        return g.csp_nonce
+
+    def politica_csp():
+        return '; '.join((
+            "default-src 'self'",
+            f"script-src 'self' 'nonce-{csp_nonce()}'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: blob:",
+            "font-src 'self' data:",
+            "connect-src 'self'",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "frame-ancestors 'self'",
+        ))
+
     @app.after_request
     def apply_security_headers(response):
+        cabecera = ('Content-Security-Policy-Report-Only'
+                    if app.config.get('CSP_REPORT_ONLY') else 'Content-Security-Policy')
+        response.headers.setdefault(cabecera, politica_csp())
         # setdefault: una respuesta puede sobreescribir su propio header
         response.headers.setdefault('X-Content-Type-Options', 'nosniff')
         response.headers.setdefault('X-Frame-Options', 'SAMEORIGIN')
@@ -243,7 +280,7 @@ def render_error(code, title, message):
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>{{ title }} - {{ marca_titulo }}</title>
-        <script>
+        <script nonce="{{ csp_nonce() }}">
             // Mismo tema que la app: sin esto la 404/500 destella en claro.
             try {
                 var temaGuardado = localStorage.getItem('folios-tema');

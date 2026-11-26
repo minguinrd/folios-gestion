@@ -24,4 +24,6 @@ def test_un_solo_modal_parametrizado(auth_client):
 def test_modal_config_en_js(auth_client):
     html = auth_client.get('/dashboard/').get_data(as_text=True)
     assert "const KPIS" in html, 'falta el mapa KPIS de configuración del modal'
-    assert "abrirModal('total')" in html, 'KPI total no dispara abrirModal'
+    assert 'data-kpi="total"' in html, 'KPI total sin data-kpi'
+    assert 'abrirModal(card.dataset.kpi)' in html, 'las tarjetas KPI no disparan abrirModal'
+    assert 'onclick=' not in html, 'sin manejadores inline (CSP)'

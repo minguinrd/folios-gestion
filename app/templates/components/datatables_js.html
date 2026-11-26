@@ -3,7 +3,7 @@
    El init va aquí (antes de main.js): las páginas sin DataTables no lo sirven. #}
 <script src="{{ url_for('static', filename='vendor/datatables/1.13.7/jquery.dataTables.min.js') }}" integrity="sha384-cjmdOgDzOE22dUheI5E6Gzd3upfmReW8N1y/4jwKQE50KYcvFKZJA9JxWgQOzqwQ"></script>
 <script src="{{ url_for('static', filename='vendor/datatables/1.13.7/dataTables.bootstrap5.min.js') }}" integrity="sha384-PgPBH0hy6DTJwu7pTf6bkRqPlf/+pjUBExpr/eIfzszlGYFlF9Wi9VTAJODPhgCO"></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
     $(document).ready(function() {
         $('.data-table').each(function() {
             // DataTables no soporta colspan en tbody (tn/18): si la tabla está

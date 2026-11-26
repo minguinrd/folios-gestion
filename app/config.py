@@ -90,6 +90,10 @@ class Config:
     RATELIMIT_DEFAULT = os.environ.get('RATELIMIT_DEFAULT', '300 per hour')
     RATELIMIT_HEADERS_ENABLED = True
 
+    # CSP en modo solo-reporte (el navegador avisa en consola pero no bloquea):
+    # válvula de escape si una página nueva rompe en producción.
+    CSP_REPORT_ONLY = _env_bool('CSP_REPORT_ONLY', False)
+
     # Solo detrás de un proxy/reverse proxy que fije X-Forwarded-For.
     # Sin eso, un cliente puede forzar su propia IP y esquivar los rate limits.
     TRUST_PROXY = os.environ.get('TRUST_PROXY', 'false').lower() == 'true'

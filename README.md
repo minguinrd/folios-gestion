@@ -69,6 +69,7 @@ troubleshooting— en [`docs/despliegue.md`](docs/despliegue.md).
 | `RATELIMIT_DEFAULT` | `300 per hour` | Tope global de peticiones. `/health` va exento. |
 | `SUGERIDO_VENTANA_MESES` | `6` | Meses de devoluciones usados para calcular el consumo mensual de cada centro (cantidad sugerida). |
 | `SUGERIDO_MESES_COBERTURA` | `3` | Meses de consumo que la cantidad sugerida busca cubrir. |
+| `CSP_REPORT_ONLY` | `false` | `true` = la Content-Security-Policy solo informa en la consola del navegador, no bloquea (para diagnosticar si una página falla por la CSP). |
 | `REPORTE_PDF_MAX_FILAS` | `5000` | Tope de filas del PDF de Reportes (WeasyPrint arma todo en memoria). Por encima se pide filtrar o usar el Excel. |
 | `TZ` | UTC (contenedor) | Hora local para las fechas de auditoría y detalle de folio (se guardan en UTC). |
 | `SCANS_FOLDER` | `<raíz del proyecto>/scans` | Carpeta de los JPG de folios escaneados: `<SCANS_FOLDER>/<año>/<id del tipo>/<número>.jpg`. En Docker montada como `./scans:/app/scans` — ver el gotcha de ownership en [Escaneos](#escaneos). |

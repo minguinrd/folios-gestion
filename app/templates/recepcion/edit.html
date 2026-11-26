@@ -52,7 +52,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ csp_nonce() }}">
     const inicial = document.getElementById('folioInicial');
     const final_ = document.getElementById('folioFinal');
     const previewInicial = document.getElementById('preview-inicial');
