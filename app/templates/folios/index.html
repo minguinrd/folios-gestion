@@ -10,26 +10,50 @@
         <i class="fas fa-file-alt me-2 text-primary"></i>Folios
     </h4>
     <div class="d-flex gap-2 flex-wrap">
-        {% if puede('folios.importar') %}
-        <a href="{{ url_for('folios.importar') }}" class="btn btn-outline-success">
-            <i class="fas fa-file-import me-1"></i>Validar Digitado
-        </a>
-        <a href="{{ url_for('folios.importar_nulos') }}" class="btn btn-outline-danger">
-            <i class="fas fa-ban me-1"></i>Validar Nulos
-        </a>
-        {% endif %}
+        {# Las tres validaciones van en un solo menú: antes eran cuatro botones del mismo peso #}
+        {% if puede('folios.importar') or puede('escaneos.subir') %}
+        <div class="dropdown">
+            <button class="btn btn-outline-primary dropdown-toggle" type="button" id="menu-validar"
+                    data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-clipboard-check me-1" aria-hidden="true"></i>Validar
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="menu-validar">
+                {% if puede('folios.importar') %}
+                <li>
+                    <a class="dropdown-item" href="{{ url_for('folios.importar') }}">
+                        <i class="fas fa-file-import me-2 text-success" aria-hidden="true"></i>Validar Digitado
+                        <small class="d-block text-muted ms-4">Marcar digitados desde Excel</small>
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{{ url_for('folios.importar_nulos') }}">
+                        <i class="fas fa-ban me-2 text-danger" aria-hidden="true"></i>Validar Nulos
+                        <small class="d-block text-muted ms-4">Marcar anulados desde Excel</small>
+                    </a>
+                </li>
+                {% endif %}
+                {% if puede('folios.importar') and puede('escaneos.subir') %}
+                <li><hr class="dropdown-divider"></li>
+                {% endif %}
+                {% if puede('escaneos.subir') %}
+                <li>
+                    <button type="button" class="dropdown-item" id="btn-validar-escaneados">
+                        <i class="fas fa-camera me-2 text-primary" aria-hidden="true"></i>Validar Escaneados
+                        <small class="d-block text-muted ms-4">Conciliar con la carpeta de escaneos</small>
+                    </button>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
         {% if puede('escaneos.subir') %}
         <form method="POST" action="{{ url_for('folios.validar_escaneados') }}"
-              class="d-inline" id="form-validar-escaneados">
+              class="d-none" id="form-validar-escaneados">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="button" class="btn btn-outline-primary"
-                    id="btn-validar-escaneados">
-                <i class="fas fa-camera me-1"></i>Validar Escaneados
-            </button>
         </form>
         {% endif %}
-        <a href="{{ url_for('folios.transferencias') }}" class="btn btn-outline-info">
-            <i class="fas fa-exchange-alt me-1"></i>Transferencias
+        {% endif %}
+        <a href="{{ url_for('folios.transferencias') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-exchange-alt me-1" aria-hidden="true"></i>Transferencias
         </a>
     </div>
 </div>

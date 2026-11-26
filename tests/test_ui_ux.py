@@ -141,3 +141,19 @@ def test_devolucion_tiene_seleccion_por_rango(admin_client, tipo):
     for id_ in ('rango-desde', 'rango-hasta', 'rango-aplicar'):
         assert f'id="{id_}"' in html, id_
     assert 'seleccion_rango.js' in html
+
+
+# --- Folios: validaciones agrupadas en un menú ---
+
+
+def test_validaciones_agrupadas_en_menu(admin_client):
+    html = admin_client.get('/folios/').get_data(as_text=True)
+    menu = html.split('id="menu-validar"', 1)[1].split('</ul>', 1)[0]
+    for texto in ('Validar Digitado', 'Validar Nulos', 'Validar Escaneados'):
+        assert texto in menu, texto
+    assert 'class="btn btn-outline-success"' not in html.split('id="menu-validar"')[0][-600:]
+    assert 'id="form-validar-escaneados"' in html, 'el POST de escaneados sigue disponible'
+
+
+def test_menu_validar_oculto_sin_permisos(auth_client):
+    assert 'id="menu-validar"' not in auth_client.get('/folios/').get_data(as_text=True)
