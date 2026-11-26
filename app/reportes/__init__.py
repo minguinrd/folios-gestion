@@ -176,10 +176,12 @@ def api_data():
 # Columnas compartidas entre el PDF y el Excel del reporte: el mismo
 # reporte no puede cambiar de orden ni de contenido según el formato
 # (auditoría UI/UX: 12 columnas en Excel, 11 y otro orden en el PDF).
+# "Entregado a" = EntregaFolio.recibidoPor (persona del centro); no confundir
+# con "Recibido Por", el usuario que registró la devolución.
 COLUMNAS_REPORTE = [
     'Folio', 'Tipo Certificado', 'Año', 'Centro', 'Estado',
     'Digitado', 'Escaneado', 'Nulo',
-    'Fecha Entrega', 'Entregado por',
+    'Fecha Entrega', 'Entregado por', 'Entregado a',
     'Fecha Devolución', 'Recibido Por',
 ]
 
@@ -200,6 +202,7 @@ def fila_reporte(f):
         entrega.fechaEntrega.strftime('%d/%m/%Y')
         if entrega and entrega.fechaEntrega else '-',
         entrega.usuario.username if entrega and entrega.usuario else '-',
+        entrega.recibidoPor if entrega and entrega.recibidoPor else '-',
         devolucion.fechaDevolucion.strftime('%d/%m/%Y')
         if devolucion and devolucion.fechaDevolucion else '-',
         devolucion.usuario.username if devolucion and devolucion.usuario else '-',

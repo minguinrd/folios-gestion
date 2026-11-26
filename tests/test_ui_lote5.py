@@ -19,7 +19,7 @@ PLANTILLAS = RAIZ / 'app' / 'templates'
 COLUMNAS_REPORTE = [
     'Folio', 'Tipo Certificado', 'Año', 'Centro', 'Estado',
     'Digitado', 'Escaneado', 'Nulo',
-    'Fecha Entrega', 'Entregado por',
+    'Fecha Entrega', 'Entregado por', 'Entregado a',
     'Fecha Devolución', 'Recibido Por',
 ]
 
@@ -101,7 +101,7 @@ def test_reportes_pdf_comparte_columnas_con_excel(admin_client, app, tipo,
     theads = re.findall(r'<th>([^<]+)</th>', html)
     assert theads == COLUMNAS_REPORTE, \
         f'columnas del PDF {theads} ≠ columnas compartidas'
-    assert html.count('<td>') == 12, 'una fila debe tener 12 celdas (12 columnas)'
+    assert html.count('<td>') == 13, 'una fila debe tener 13 celdas (13 columnas)'
     assert 'Si</td>' not in html, '"Si" sin tilde en el PDF'
     assert re.search(r'<td>Sí</td>', html), '"Sí" sin tilde en el PDF'
 
