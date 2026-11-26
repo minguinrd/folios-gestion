@@ -54,3 +54,10 @@ def test_static_vendor_se_sirve(client):
     resp = client.get('/static/vendor/bootstrap/5.3.3/bootstrap.min.css')
     assert resp.status_code == 200
     assert b'Bootstrap' in resp.data[:200]
+
+
+def test_fuentes_con_tipo_correcto(client):
+    resp = client.get('/static/vendor/fontawesome/6.5.1/webfonts/fa-solid-900.woff2')
+    assert resp.status_code == 200
+    assert resp.content_type == 'font/woff2'
+    assert client.get('/static/vendor/fontawesome/6.5.1/webfonts/fa-solid-900.ttf').content_type == 'font/ttf'

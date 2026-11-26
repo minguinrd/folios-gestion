@@ -7,6 +7,12 @@ from app.extensions import db, login_manager, migrate, csrf, limiter
 
 
 def create_app(config_class=None):
+    # Tipos de fuentes de static/vendor: python:3.11-slim no trae
+    # /etc/mime.types y las servía como application/octet-stream.
+    import mimetypes
+    mimetypes.add_type('font/woff2', '.woff2')
+    mimetypes.add_type('font/ttf', '.ttf')
+
     app = Flask(__name__)
     cfg = config_class or Config
     app.config.from_object(cfg)
